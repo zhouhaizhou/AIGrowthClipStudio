@@ -1,0 +1,21 @@
+# build / deps
+node_modules/
+dist/
+__pycache__/
+*.pyc
+.venv/
+venv/
+
+# local runtime artifacts
+storage/
+data/
+*.db
+*.db-wal
+*.db-shm
+
+# env
+.env
+.env.local
+
+# os
+.DS_Store
