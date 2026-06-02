@@ -69,10 +69,13 @@ Admin UI
 - Celery + Redis/RabbitMQ
 - Temporal
 
-MVP 推荐：
+MVP 主语言边界（直接拍板，避免 M0 含糊）：
 
-- Node.js 项目用 BullMQ
-- Python 视频处理多时用 Celery
+- **BFF / API Server = Node.js**，贴合公司 admin（Next.js + React + Ant Design）现有栈和 `createAxios` 风格。
+- **AI Pipeline Worker = Python**，贴合 FFmpeg / WhisperX / faster-whisper / PySceneDetect 生态。
+- **队列用 Redis**，两边都能接：Node 侧用 BullMQ 入队/查询，Python 侧用 Celery 或 RQ 消费。
+- 不要在 MVP 阶段纠结统一单语言；混合栈在这个场景是正常且更省力的选择。
+- 跨语言只通过“队列消息 + 对象存储产物 + DB 状态”通信，不共享内存对象。
 
 ## 2.4 AI Pipeline Worker
 
@@ -95,10 +98,13 @@ prepare_video
   -> detect_scenes
   -> analyze_highlights
   -> render_clips
+  -> select_cover
   -> generate_packaging
   -> quality_check
   -> persist_assets
 ```
+
+说明：`select_cover` 是独立一步——从切片里抽候选帧并用视觉模型/规则打分，选出封面帧。封面直接影响推荐流点击率，不应隐含在渲染里。
 
 ## 2.5 Storage
 
@@ -120,14 +126,24 @@ prepare_video
 
 ## 2.6 Metadata DB
 
-核心表：
+表分两批，避免“核心表”和建表草案不一致：
+
+MVP 必建（见 03 建表草案）：
 
 - ai_clip_tasks
-- ai_clip_assets
 - ai_clip_segments
-- ai_clip_packaging
-- ai_prompt_runs
-- ai_asset_metrics
+- ai_clip_assets
+
+观测/回流阶段补建：
+
+- ai_prompt_runs（LLM 调用记录，随观测能力上）
+- ai_asset_metrics（效果回流，随数据闭环上）
+
+说明：
+
+- 运营包装结果（标题/封面文案/推荐语/标签）**直接内嵌在 `ai_clip_assets`**，MVP 不单独建 `ai_clip_packaging` 表。
+- 包装 prompt 会产出多个候选标题/封面（见 05），审核阶段需要的候选集放在 `ai_clip_segments` 的 `packaging_draft` JSON 字段里；审核通过后把选中的那条落到 `ai_clip_assets`。
+- 真正需要“多版本包装做 A/B”时，再把候选拆成独立 `ai_clip_packaging` 表（后续阶段）。
 
 ## 3. 核心数据模型
 
@@ -147,7 +163,10 @@ interface AiClipTask {
   sourceContentType: 'video' | 'episode';
   sourceVideoUrl: string;
   targetScenarios: Array<'feed' | 'detail' | 'ad' | 'membership' | 'social'>;
-  targetDurations: Array<15 | 30 | 60>;
+  // 用 number[] 而非 15|30|60 字面量，便于扩展 9s/45s 等时长
+  targetDurations: number[];
+  // 目标画幅；推荐流/全屏 feed 多为 9:16，MVP 必须支持竖屏重排
+  targetAspectRatios: Array<'9:16' | '16:9' | '1:1' | '4:5'>;
   targetLanguages: string[];
   status: AiClipTaskStatus;
   progress: number;
@@ -196,7 +215,8 @@ interface AiClipAsset {
   segmentId: string;
   sourceContentId: string;
   scenario: 'feed' | 'detail' | 'ad' | 'membership' | 'social';
-  duration: 15 | 30 | 60;
+  duration: number;
+  aspectRatio: '9:16' | '16:9' | '1:1' | '4:5';
   language: string;
   videoUrl: string;
   coverUrl?: string;
@@ -222,6 +242,8 @@ interface AiPromptRun {
   model: string;
   promptVersion: string;
   inputHash: string;
+  // outputJson 可能很大，DB 里只存摘要/引用；完整输出建议落对象存储并设 TTL，
+  // 这里改存 outputRef（对象存储 key）或截断后的 outputSummary，避免表膨胀
   outputJson: unknown;
   latencyMs: number;
   inputTokens?: number;
@@ -301,28 +323,33 @@ interface AiPromptRun {
 
 ## 4.4 analyze_highlights
 
+这是整个产品的价值锚点（“高光准不准”），不能只靠字幕文本。采用多信号融合定位 + LLM 语义解释的两段式：
+
 输入：
 
-- transcript
-- scenes
+- transcript（文本语义信号）
+- scenes（镜头切分密度、剪辑节奏信号）
+- audioFeatures（音量能量包络、静音比例、BGM 高潮——可由 FFmpeg/librosa 抽取）
 - content metadata
-- optional analytics
+- optional analytics（完播热力、拖拽/回看热点、跳出点——若前台有埋点）
+- optional keyframe scores（关键帧视觉模型打分）
 
 处理：
 
-- 把字幕按镜头和语义分段
-- 识别候选高光
-- 给每个候选片段评分
-- 输出结构化片段
+1. 信号融合定位：用节奏/音频/行为信号先圈出候选时间窗（不依赖 LLM）。
+2. 语义解释归类：把候选窗对应的字幕 + 关键帧交给 LLM，做高光类型判断、评分、reason。
+3. 边界对齐：把起止时间吸附到镜头边界，避免半句话/半个镜头。
 
 模型：
 
-- LLM
-- 可选视觉模型
+- LLM（语义解释和归类）
+- 可选视觉模型（关键帧打分）
 
 输出：
 
 - highlight_candidates.json
+
+降级注意：纯“LLM + 字幕”可作为最初版本，但必须配离线评测集衡量采纳率（见 03 的 M2 验收），不能把“多出候选让运营挑”当成长期方案——那会把成本推回人工，削弱核心卖点。
 
 ## 4.5 render_clips
 
@@ -330,24 +357,48 @@ interface AiPromptRun {
 
 - highlight candidates
 - target durations
+- target aspect ratios
 - render config
 
 处理：
 
 - 调整起止时间到合适镜头边界
 - 裁剪视频
-- 可选烧录字幕
-- 可选生成竖屏版本
+- 画幅重排（一等公民，非可选）：按 targetAspectRatios 输出 9:16 等版本，处理主体裁切、安全区避让、字幕重排
+- 软字幕关联；烧录字幕作为可选项（MVP 默认软字幕，烧录放后续）
 
 工具：
 
-- FFmpeg
+- FFmpeg（裁剪、crop/scale/pad 做画幅重排）
+- 可选：主体检测（人脸/显著性）辅助竖屏裁切，避免主体被切掉
 
 输出：
 
-- clip video files
+- clip video files（每个 duration × aspectRatio 一份）
 
-## 4.6 generate_packaging
+## 4.6 select_cover
+
+输入：
+
+- clip video file
+- scenes / keyframes
+
+处理：
+
+- 从切片抽候选帧
+- 用视觉模型或规则（清晰度、人脸、表情强度、非黑屏）打分
+- 选出封面帧，必要时叠加封面文案（封面文案由 generate_packaging 产出）
+
+工具：
+
+- FFmpeg 抽帧
+- 可选视觉模型评分
+
+输出：
+
+- cover image（候选 + 选中）
+
+## 4.7 generate_packaging
 
 输入：
 
@@ -368,7 +419,7 @@ interface AiPromptRun {
 - packaging.json
 - subtitle files
 
-## 4.7 quality_check
+## 4.8 quality_check
 
 检查项：
 
@@ -434,4 +485,10 @@ interface VideoGenerationProvider {
 - 用户数据进入 LLM 前需要脱敏。
 - 视频 URL 应使用短期签名 URL。
 - 任务产物按权限隔离。
+
+投放渠道侧合规（容易被漏，但直接决定素材能不能投出去）：
+
+- 切片用于信息流广告时，需适配各渠道（抖音/快手/视频号/Meta 等）的素材审核规则：标题党、诱导性表达、版权 BGM、画面违规等。
+- 质检（quality_check）应内置一份“渠道敏感词/诱导词”规则，并允许按目标渠道切换。
+- 会员“试看片段 + 解锁话术”要平衡剧透与转化，且只能在内容授权的范围内生成；付费正片的切片对外投放需单独确认授权边界。
 

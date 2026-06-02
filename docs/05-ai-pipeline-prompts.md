@@ -11,6 +11,12 @@
 - 文案必须适合运营审核，不直接发布。
 - 高风险内容必须标注 riskLevel。
 
+关于高光识别的定位（与 02 的多信号方案对齐）：
+
+- 高光不是让 LLM 仅凭字幕“猜”。节奏、音频、行为信号在 LLM 之前已经圈出候选时间窗（`candidateWindows`）。
+- LLM 的职责是**语义解释和归类**：在候选窗内判断高光类型、评分、给理由、微调边界，并说明依据了哪些信号（`signalEvidence`）。
+- LLM 可以拒绝某个候选窗（判定为非高光），也可以在候选窗附近微调边界，但不应凭空提出远离所有信号的片段。
+
 ## 2. 高光识别 Prompt
 
 ## 2.1 输入结构
@@ -35,11 +41,38 @@
     {
       "startMs": 0,
       "endMs": 9000,
-      "keyframeUrl": "https://example.com/keyframe.jpg"
+      "keyframeUrl": "https://example.com/keyframe.jpg",
+      "keyframeScore": 0.82
+    }
+  ],
+  "audioFeatures": [
+    {
+      "startMs": 6000,
+      "endMs": 9000,
+      "energy": 0.91,
+      "silenceRatio": 0.05
+    }
+  ],
+  "analytics": [
+    {
+      "startMs": 6000,
+      "endMs": 9000,
+      "completionRate": 0.88,
+      "replayHeat": 0.74,
+      "dropOff": 0.12
+    }
+  ],
+  "candidateWindows": [
+    {
+      "startMs": 6000,
+      "endMs": 9000,
+      "source": "rhythm | audio | analytics | mixed",
+      "signalScore": 0.86
     }
   ],
   "targetScenarios": ["feed", "membership"],
   "targetDurations": [15, 30],
+  "targetAspectRatios": ["9:16"],
   "clipCount": 3
 }
 ```
@@ -47,15 +80,17 @@
 ## 2.2 Prompt 模板
 
 ```text
-你是短剧增长素材导演。你的任务是从一集视频的字幕和镜头信息中，找出最适合推荐流、广告、会员转化的高光片段。
+你是短剧增长素材导演。系统已经用节奏、音频、行为等信号圈出了若干候选时间窗（candidateWindows）。你的任务是结合字幕、镜头、音频和行为信号，对这些候选窗做语义解释和归类，挑出最适合推荐流、广告、会员转化的高光片段。
 
 请遵守：
-1. 只基于输入字幕和镜头信息判断，不要编造剧情。
-2. 片段必须有明确 hook、冲突、反转、悬念或情绪价值。
-3. 片段起止时间必须落在输入时间范围内。
-4. 优先选择开头 3 秒能吸引用户继续看的片段。
-5. 如果片段适合作为会员转化素材，请说明原因。
-6. 输出 JSON，不要输出 markdown。
+1. 优先在 candidateWindows 内判断和细化边界；可以在候选窗附近微调，但不要凭空提出远离所有信号的片段。
+2. 判断不要只看字幕：结合 audioFeatures（情绪/BGM 高潮）、analytics（完播/回看热点）、keyframeScore（画面强度）综合判断。
+3. 若某信号缺失（audioFeatures/analytics/candidateWindows 为空），退化为基于字幕和镜头判断，但要在 signalEvidence 里如实标注依据较弱。
+4. 不要编造剧情；片段必须有明确 hook、冲突、反转、悬念或情绪价值。
+5. 片段起止时间必须落在输入时间范围内。
+6. 优先选择开头 3 秒能吸引用户继续看的片段。
+7. 如果片段适合作为会员转化素材，请说明原因。
+8. 输出 JSON，不要输出 markdown。
 
 请输出：
 {
@@ -67,6 +102,11 @@
       "score": number,
       "summary": string,
       "reason": string,
+      "signalEvidence": {
+        "fromCandidateWindow": boolean,
+        "signals": ["transcript" | "rhythm" | "audio" | "analytics" | "keyframe"],
+        "note": string
+      },
       "recommendedScenarios": ["feed" | "detail" | "ad" | "membership" | "social"],
       "transcriptText": string,
       "riskLevel": "low | medium | high",
@@ -92,7 +132,8 @@
     "transcriptText": "你不过是个没人要的女人。等等，她竟然是董事长的女儿。",
     "highlightType": "reversal",
     "scenario": "feed",
-    "duration": 15
+    "duration": 15,
+    "aspectRatio": "9:16"
   }
 }
 ```
@@ -191,7 +232,7 @@
 建议每个 prompt 都带版本号：
 
 ```text
-highlight_detection_v1
+highlight_detection_v2   # v2 起改为多信号两段式（候选窗 + 语义解释），v1 为纯字幕版
 packaging_generation_v1
 quality_check_v1
 localization_v1
