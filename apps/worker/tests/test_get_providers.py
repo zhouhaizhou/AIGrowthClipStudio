@@ -45,3 +45,11 @@ def test_llm_selects_claude_highlight_without_client():
     cfg.highlight_provider = "llm"
     h = _build_highlight(cfg)
     assert isinstance(h, ClaudeHighlightProvider)
+
+
+def test_unknown_highlight_provider_falls_back_to_mock():
+    from agcs_worker.pipeline import _build_highlight
+    from agcs_worker.providers.mock import MockHighlightProvider
+    cfg = _cfg("mock")
+    cfg.highlight_provider = "typo"
+    assert isinstance(_build_highlight(cfg), MockHighlightProvider)

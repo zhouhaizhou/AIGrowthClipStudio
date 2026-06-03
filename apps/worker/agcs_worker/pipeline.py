@@ -100,12 +100,12 @@ def run_task(conn, config: Config, task: dict) -> None:
             {"start_ms": s.start_ms, "end_ms": s.end_ms, "text": s.text}
             for s in transcript.segments
         ],
-        "content": {
+        "content": {k: v for k, v in {
             "title": task.get("title"),
             "description": task.get("description"),
             "category": task.get("category"),
             "tags": tags,
-        },
+        }.items() if v not in (None, "", [])},
     })
 
     # render + cover + packaging + persist
