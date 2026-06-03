@@ -19,3 +19,13 @@ def test_load_config_reads_whisper_env(monkeypatch):
     cfg = load_config()
     assert cfg.whisper_model == "small"
     assert cfg.whisper_language == "zh"
+
+
+def test_load_config_llm_model_default(monkeypatch):
+    monkeypatch.delenv("LLM_MODEL", raising=False)
+    assert load_config().llm_model == "claude-sonnet-4-6"
+
+
+def test_load_config_reads_llm_model_env(monkeypatch):
+    monkeypatch.setenv("LLM_MODEL", "claude-opus-4-8")
+    assert load_config().llm_model == "claude-opus-4-8"

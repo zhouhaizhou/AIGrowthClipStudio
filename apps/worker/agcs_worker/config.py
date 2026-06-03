@@ -26,6 +26,7 @@ class Config:
     whisper_device: str
     whisper_compute_type: str
     whisper_language: str
+    llm_model: str
 
 
 def load_config() -> Config:
@@ -41,4 +42,5 @@ def load_config() -> Config:
         whisper_device=os.environ.get("WHISPER_DEVICE", "cpu"),
         whisper_compute_type=os.environ.get("WHISPER_COMPUTE_TYPE", "int8"),
         whisper_language=os.environ.get("WHISPER_LANGUAGE", ""),
+        llm_model=os.environ.get("LLM_MODEL", "claude-sonnet-4-6"),
     )
