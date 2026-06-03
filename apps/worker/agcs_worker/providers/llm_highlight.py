@@ -1,5 +1,9 @@
 import json as _json
+import logging
+import math
 from typing import List
+
+_log = logging.getLogger(__name__)
 
 from .base import HighlightSegment
 
@@ -45,6 +49,7 @@ HIGHLIGHT_TOOL = {
 
 def _build_user(content: dict, transcript: list, scenarios: list,
                 clip_count: int, duration_ms: int) -> str:
+    # TODO(post-M2a): truncate/window the transcript to fit the context window for long videos.
     lines = [f"[{t['start_ms']}-{t['end_ms']}] {t['text']}" for t in transcript]
     return (
         f"内容元信息：{_json.dumps(content, ensure_ascii=False)}\n"
@@ -58,7 +63,8 @@ def _build_user(content: dict, transcript: list, scenarios: list,
 def _extract_tool_input(resp) -> dict:
     for block in getattr(resp, "content", []) or []:
         if getattr(block, "type", None) == "tool_use" and getattr(block, "name", None) == "report_highlights":
-            return block.input or {}
+            raw = block.input
+            return raw if isinstance(raw, dict) else {}
     return {}
 
 
@@ -83,9 +89,12 @@ def _to_segments(raw_segments, transcript, duration_ms, scenarios, clip_count) -
         if htype not in ALLOWED_TYPES:
             continue
         try:
-            score = max(0.0, min(1.0, float(r.get("score", 0.0))))
+            score = float(r.get("score", 0.0))
         except (TypeError, ValueError):
             score = 0.0
+        if not math.isfinite(score):
+            score = 0.0
+        score = max(0.0, min(1.0, score))
         scenario = r.get("recommendedScenario")
         if scenario not in scenarios:
             scenario = scenarios[0] if scenarios else "feed"
@@ -98,7 +107,7 @@ def _to_segments(raw_segments, transcript, duration_ms, scenarios, clip_count) -
             risk_reason=r.get("riskReason"),
         ))
     out.sort(key=lambda s: s.score, reverse=True)
-    return out[:clip_count]
+    return out[:max(1, clip_count)]
 
 
 class ClaudeHighlightProvider:
@@ -135,4 +144,6 @@ class ClaudeHighlightProvider:
                        "content": _build_user(content, transcript, scenarios, clip_count, duration_ms)}],
         )
         raw = _extract_tool_input(resp)
+        if not raw:
+            _log.warning("ClaudeHighlightProvider: no report_highlights tool_use block in response")
         return _to_segments(raw.get("segments", []), transcript, duration_ms, scenarios, clip_count)

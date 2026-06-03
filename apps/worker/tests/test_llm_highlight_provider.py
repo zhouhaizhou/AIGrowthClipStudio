@@ -42,11 +42,17 @@ def _ctx():
 def test_maps_and_grounds_transcript_text():
     raw = [{"startMs": 0, "endMs": 4000, "highlightType": "conflict", "score": 0.9,
             "reason": "r", "summary": "s", "recommendedScenario": "feed", "riskLevel": "low"}]
-    segs = ClaudeHighlightProvider(client=_FakeClient(raw)).analyze(_ctx())
+    fake = _FakeClient(raw)
+    segs = ClaudeHighlightProvider(client=fake).analyze(_ctx())
     assert len(segs) == 1
     assert segs[0].start_ms == 0 and segs[0].end_ms == 4000
     assert segs[0].highlight_type == "conflict"
     assert segs[0].transcript_text == "你不过是个没人要的女人。"   # grounded, not from LLM
+    # API call shape is locked so a refactor can't silently drop forced tool-use / caching
+    call = fake.messages.calls[0]
+    assert call["tool_choice"] == {"type": "tool", "name": "report_highlights"}
+    assert call["tools"][0]["name"] == "report_highlights"
+    assert call["system"][0]["cache_control"] == {"type": "ephemeral"}
 
 
 def test_clamps_bounds_score_and_scenario():
@@ -86,3 +92,11 @@ def test_sorts_by_score_and_caps_clip_count():
     ctx["clip_count"] = 2
     segs = ClaudeHighlightProvider(client=_FakeClient(raw)).analyze(ctx)
     assert [s.score for s in segs] == [0.9, 0.5]
+
+
+def test_nan_score_does_not_become_max():
+    raw = [{"startMs": 0, "endMs": 1000, "highlightType": "emotion", "score": float("nan"),
+            "reason": "", "summary": "", "recommendedScenario": "feed", "riskLevel": "low"}]
+    segs = ClaudeHighlightProvider(client=_FakeClient(raw)).analyze(_ctx())
+    assert len(segs) == 1
+    assert segs[0].score == 0.0   # NaN -> 0.0, not 1.0
