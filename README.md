@@ -30,6 +30,17 @@ cd apps/worker && python3 -m agcs_worker.main
 # 或处理一条后退出：python3 -m agcs_worker.main --once
 ```
 
+## 真实 ASR（可选，M1）
+
+默认 `ASR_PROVIDER=mock`，无需额外依赖。启用 faster-whisper（CPU）：
+
+```bash
+cd apps/worker && python3 -m pip install -r requirements.txt   # 装 faster-whisper（首次运行会联网下载模型）
+ASR_PROVIDER=whisper WHISPER_MODEL=base python3 -m agcs_worker.main --once
+```
+
+可配置：`WHISPER_MODEL`（tiny/base/small…，默认 base）、`WHISPER_DEVICE`（默认 cpu）、`WHISPER_COMPUTE_TYPE`（默认 int8）、`WHISPER_LANGUAGE`（留空=自动检测）。
+
 ## 测试
 
 ```bash
