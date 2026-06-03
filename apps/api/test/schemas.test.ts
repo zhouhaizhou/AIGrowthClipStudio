@@ -16,9 +16,19 @@ describe('schemas', () => {
     expect(parsed.tags).toEqual([])
   })
 
-  it('rejects empty sourceContentId', () => {
-    const r = CreateTaskBody.safeParse({ sourceContentId: '' })
+  it('rejects empty sourceContentId (isolated)', () => {
+    const r = CreateTaskBody.safeParse({
+      sourceContentId: '',
+      sourceContentType: 'episode',
+      sourceVideoUrl: 'file:///tmp/x.mp4',
+      targetScenarios: ['feed'],
+      targetDurations: [15],
+    })
     expect(r.success).toBe(false)
+  })
+
+  it('rejects an invalid review status', () => {
+    expect(ReviewBody.safeParse({ status: 'pending' }).success).toBe(false)
   })
 
   it('parses a review body', () => {
