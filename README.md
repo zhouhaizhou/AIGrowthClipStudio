@@ -35,11 +35,13 @@ cd apps/worker && python3 -m agcs_worker.main
 默认 `ASR_PROVIDER=mock`，无需额外依赖。启用 faster-whisper（CPU）：
 
 ```bash
-cd apps/worker && python3 -m pip install -r requirements.txt   # 装 faster-whisper（首次运行会联网下载模型）
+cd apps/worker && python3 -m pip install -r requirements.txt   # 装 faster-whisper（首次运行会联网下载模型，base 约 150MB）
 ASR_PROVIDER=whisper WHISPER_MODEL=base python3 -m agcs_worker.main --once
 ```
 
-可配置：`WHISPER_MODEL`（tiny/base/small…，默认 base）、`WHISPER_DEVICE`（默认 cpu）、`WHISPER_COMPUTE_TYPE`（默认 int8）、`WHISPER_LANGUAGE`（留空=自动检测）。
+可配置：`WHISPER_MODEL`（tiny/base/small…，默认 base）、`WHISPER_DEVICE`（默认 cpu）、`WHISPER_COMPUTE_TYPE`（默认 int8）、`WHISPER_LANGUAGE`（留空=自动检测，强制中文填 `zh`）。
+
+> 默认 CPU；如需 GPU（WHISPER_DEVICE=cuda），需另行安装 CUDA 版 CTranslate2，requirements.txt 不含。
 
 ## 测试
 
