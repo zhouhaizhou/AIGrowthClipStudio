@@ -22,3 +22,11 @@ def test_extract_frame(sample_video, tmp_path):
     out = str(tmp_path / "frame.jpg")
     ffmpeg.extract_frame(sample_video, 1000, out)
     assert os.path.exists(out) and os.path.getsize(out) > 0
+
+
+def test_extract_audio(sample_video, tmp_path):
+    out = str(tmp_path / "audio.wav")
+    ffmpeg.extract_audio(sample_video, out)
+    assert os.path.exists(out) and os.path.getsize(out) > 0
+    # 16k 单声道 wav 应能被 ffprobe 读出时长
+    assert ffmpeg.probe_duration_ms(out) is not None

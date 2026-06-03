@@ -55,3 +55,8 @@ def cut_clip(src: str, start_ms: int, dur_ms: int, aspect_ratio: str, out_path: 
 def extract_frame(src: str, at_ms: int, out_path: str) -> None:
     _run(["ffmpeg", "-y", "-ss", f"{at_ms / 1000:.3f}", "-i", src,
           "-frames:v", "1", "-q:v", "3", out_path])
+
+
+def extract_audio(src: str, out_path: str) -> None:
+    _run(["ffmpeg", "-y", "-i", src, "-vn", "-ac", "1", "-ar", "16000",
+          "-c:a", "pcm_s16le", out_path])
