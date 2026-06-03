@@ -22,6 +22,10 @@ class Config:
     asr_provider: str
     highlight_provider: str
     packaging_provider: str
+    whisper_model: str
+    whisper_device: str
+    whisper_compute_type: str
+    whisper_language: str
 
 
 def load_config() -> Config:
@@ -33,4 +37,8 @@ def load_config() -> Config:
         asr_provider=os.environ.get("ASR_PROVIDER", "mock"),
         highlight_provider=os.environ.get("HIGHLIGHT_PROVIDER", "mock"),
         packaging_provider=os.environ.get("PACKAGING_PROVIDER", "mock"),
+        whisper_model=os.environ.get("WHISPER_MODEL", "base"),
+        whisper_device=os.environ.get("WHISPER_DEVICE", "cpu"),
+        whisper_compute_type=os.environ.get("WHISPER_COMPUTE_TYPE", "int8"),
+        whisper_language=os.environ.get("WHISPER_LANGUAGE", ""),
     )
