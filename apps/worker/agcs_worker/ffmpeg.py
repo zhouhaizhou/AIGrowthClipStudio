@@ -1,4 +1,5 @@
 import subprocess
+from typing import Optional
 
 
 class FfmpegError(RuntimeError):
@@ -15,14 +16,17 @@ ASPECT_FILTERS = {
 }
 
 
-def _run(cmd: list) -> str:
-    proc = subprocess.run(cmd, capture_output=True, text=True)
+def _run(cmd: list[str], timeout: int = 300) -> str:
+    try:
+        proc = subprocess.run(cmd, capture_output=True, text=True, timeout=timeout)
+    except subprocess.TimeoutExpired as e:
+        raise FfmpegError(f"{cmd[0]} timed out after {timeout}s") from e
     if proc.returncode != 0:
         raise FfmpegError(f"{cmd[0]} failed ({proc.returncode}): {proc.stderr[-500:]}")
     return proc.stdout
 
 
-def probe_duration_ms(path: str):
+def probe_duration_ms(path: str) -> Optional[int]:
     try:
         out = _run(["ffprobe", "-v", "error", "-show_entries", "format=duration",
                     "-of", "default=nw=1:nk=1", path]).strip()
@@ -37,7 +41,11 @@ def probe_duration_ms(path: str):
 
 
 def cut_clip(src: str, start_ms: int, dur_ms: int, aspect_ratio: str, out_path: str) -> None:
-    vf = ASPECT_FILTERS.get(aspect_ratio, ASPECT_FILTERS["9:16"])
+    if aspect_ratio not in ASPECT_FILTERS:
+        raise ValueError(
+            f"Unknown aspect_ratio {aspect_ratio!r}; expected one of {list(ASPECT_FILTERS)}"
+        )
+    vf = ASPECT_FILTERS[aspect_ratio]
     _run(["ffmpeg", "-y", "-ss", f"{start_ms / 1000:.3f}", "-i", src,
           "-t", f"{dur_ms / 1000:.3f}", "-vf", vf,
           "-c:v", "libx264", "-preset", "ultrafast", "-c:a", "aac",
