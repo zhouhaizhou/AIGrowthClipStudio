@@ -21,7 +21,8 @@ SAMPLE="$ROOT/storage/sample.mp4"
 if [ ! -f "$SAMPLE" ]; then
   ffmpeg -y -f lavfi -i testsrc=duration=20:size=1280x720:rate=25 \
     -f lavfi -i sine=frequency=440:duration=20 \
-    -c:v libx264 -preset ultrafast -c:a aac -shortest "$SAMPLE" >/dev/null 2>&1
+    -c:v libx264 -preset ultrafast -c:a aac -shortest "$SAMPLE" >/dev/null 2>&1 \
+    || { echo "ERROR: ffmpeg failed to generate sample video"; exit 1; }
 fi
 
 # 2) 起 API（后台），等待端口就绪
@@ -32,6 +33,8 @@ for _ in $(seq 1 30); do
   fi
   sleep 0.5
 done
+curl -s "localhost:$API_PORT/api/ai-growth-clip/tasks" >/dev/null 2>&1 \
+  || { echo "ERROR: API did not start within 15s — see /tmp/agcs-api.log"; exit 1; }
 
 # 3) 建任务
 RESP=$(curl -s -X POST "localhost:$API_PORT/api/ai-growth-clip/tasks" \
@@ -39,6 +42,10 @@ RESP=$(curl -s -X POST "localhost:$API_PORT/api/ai-growth-clip/tasks" \
   -d "{\"sourceContentId\":\"1\",\"sourceContentType\":\"episode\",\"sourceVideoUrl\":\"file://$SAMPLE\",\"title\":\"样例\",\"targetScenarios\":[\"feed\"],\"targetDurations\":[15,30],\"targetAspectRatios\":[\"9:16\"],\"targetLanguages\":[\"zh-CN\"],\"clipCount\":3}")
 echo "create: $RESP"
 TASK_ID=$(echo "$RESP" | sed -E 's/.*"taskId":"([^"]+)".*/\1/')
+case "$TASK_ID" in
+  task_*) ;;
+  *) echo "ERROR: task creation failed — $RESP"; exit 1 ;;
+esac
 
 # 4) 跑一轮 worker
 ( cd "$ROOT/apps/worker" && DB_PATH="$DB_PATH" STORAGE_DIR="$STORAGE_DIR" python3 -m agcs_worker.main --once )
