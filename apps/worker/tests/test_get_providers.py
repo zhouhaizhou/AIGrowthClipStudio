@@ -20,3 +20,13 @@ def test_whisper_selects_whisper_provider_without_loading_model():
     # 构造 provider 不应加载/下载 faster-whisper 模型（懒加载）
     asr = _build_asr(_cfg("whisper"))
     assert isinstance(asr, WhisperAsrProvider)
+
+
+def test_unknown_asr_provider_falls_back_to_mock():
+    asr = _build_asr(_cfg("whsiper"))  # typo → must fall back to mock
+    assert isinstance(asr, MockAsrProvider)
+
+
+def test_provider_audio_capability_flags():
+    assert _build_asr(_cfg("mock")).needs_audio_file is False
+    assert _build_asr(_cfg("whisper")).needs_audio_file is True

@@ -7,6 +7,8 @@ class WhisperAsrProvider:
     """Real ASR via faster-whisper. `model` is injectable for tests; when None it is
     lazily constructed on first use so importing this module never requires faster-whisper."""
 
+    needs_audio_file = True
+
     def __init__(self, model=None, model_size: str = "base", device: str = "cpu",
                  compute_type: str = "int8", language: str = ""):
         self._model = model

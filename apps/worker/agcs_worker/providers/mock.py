@@ -6,6 +6,7 @@ from .base import (
 
 
 class MockAsrProvider:
+    needs_audio_file = False
     LINES = [
         "你不过是个没人要的女人。",
         "等等，她竟然是董事长的女儿。",

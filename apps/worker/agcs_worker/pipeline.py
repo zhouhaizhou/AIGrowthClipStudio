@@ -1,4 +1,5 @@
 import json
+import logging
 import os
 from typing import Optional
 
@@ -8,6 +9,8 @@ from .config import Config
 from .providers.mock import (
     MockAsrProvider, MockHighlightProvider, MockPackagingProvider,
 )
+
+_log = logging.getLogger(__name__)
 
 
 def get_providers(config: Config):
@@ -23,6 +26,8 @@ def _build_asr(config: Config):
             compute_type=config.whisper_compute_type,
             language=config.whisper_language,
         )
+    if config.asr_provider != "mock":
+        _log.warning("Unknown ASR_PROVIDER %r; falling back to mock", config.asr_provider)
     return MockAsrProvider()
 
 
@@ -52,7 +57,7 @@ def run_task(conn, config: Config, task: dict) -> None:
     if not duration_ms:
         duration_ms = 20000
     audio_path = ""
-    if src:
+    if src and getattr(asr, "needs_audio_file", True):
         audio_path = os.path.join(task_dir, "audio.wav")
         ffmpeg.extract_audio(src, audio_path)
 
