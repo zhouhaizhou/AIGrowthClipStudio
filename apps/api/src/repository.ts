@@ -2,6 +2,16 @@ import type { DB } from './db.js'
 import { newId } from './ids.js'
 import type { CreateTaskInput, ReviewInput } from './schemas.js'
 
+function parseTags(value: unknown): string[] {
+  if (typeof value !== 'string') return []
+  try {
+    const parsed = JSON.parse(value)
+    return Array.isArray(parsed) ? parsed : []
+  } catch {
+    return []
+  }
+}
+
 export interface TaskSummary {
   id: string
   status: string
@@ -53,7 +63,7 @@ function toAssetDto(row: any): AssetDto {
     title: row.title ?? null,
     coverText: row.cover_text ?? null,
     recommendationText: row.recommendation_text ?? null,
-    tags: JSON.parse(row.tags ?? '[]'),
+    tags: parseTags(row.tags),
     status: row.status,
   }
 }
@@ -121,9 +131,7 @@ export function getAssetsByTask(db: DB, taskId: string): AssetDto[] {
 }
 
 export function reviewAsset(db: DB, id: string, patch: ReviewInput): AssetDto | undefined {
-  const existing = db.prepare('SELECT id FROM ai_clip_assets WHERE id = ?').get(id)
-  if (!existing) return undefined
-  db.prepare(
+  const result = db.prepare(
     `UPDATE ai_clip_assets SET
        status = @status,
        title = COALESCE(@title, title),
@@ -139,5 +147,6 @@ export function reviewAsset(db: DB, id: string, patch: ReviewInput): AssetDto | 
     recommendationText: patch.recommendationText ?? null,
     now: Date.now(),
   })
+  if (Number(result.changes) === 0) return undefined
   return toAssetDto(db.prepare('SELECT * FROM ai_clip_assets WHERE id = ?').get(id))
 }
