@@ -11,8 +11,19 @@ from .providers.mock import (
 
 
 def get_providers(config: Config):
-    # M0 仅支持 mock；真实 provider 在后续里程碑接入
-    return MockAsrProvider(), MockHighlightProvider(), MockPackagingProvider()
+    return _build_asr(config), MockHighlightProvider(), MockPackagingProvider()
+
+
+def _build_asr(config: Config):
+    if config.asr_provider in ("whisper", "faster-whisper"):
+        from .providers.whisper import WhisperAsrProvider  # lazy: avoid import on mock path
+        return WhisperAsrProvider(
+            model_size=config.whisper_model,
+            device=config.whisper_device,
+            compute_type=config.whisper_compute_type,
+            language=config.whisper_language,
+        )
+    return MockAsrProvider()
 
 
 def _local_path_from_url(url: Optional[str]) -> Optional[str]:
@@ -35,15 +46,19 @@ def run_task(conn, config: Config, task: dict) -> None:
 
     src = _local_path_from_url(task.get("source_video_url", ""))
 
-    # prepare_video
+    # prepare_video（有源时抽 16k 单声道 wav 供真实 ASR；mock 忽略该路径）
     dbm.update_progress(conn, task_id, 5, "prepare_video")
     duration_ms = ffmpeg.probe_duration_ms(src) if src else None
     if not duration_ms:
         duration_ms = 20000
+    audio_path = ""
+    if src:
+        audio_path = os.path.join(task_dir, "audio.wav")
+        ffmpeg.extract_audio(src, audio_path)
 
-    # transcribe_audio (mock)
+    # transcribe_audio
     dbm.update_progress(conn, task_id, 20, "transcribe_audio")
-    transcript = asr.transcribe(src or "", duration_ms)
+    transcript = asr.transcribe(audio_path, duration_ms)
     with open(os.path.join(task_dir, "transcript.json"), "w", encoding="utf-8") as f:
         json.dump([s.__dict__ for s in transcript.segments], f, ensure_ascii=False)
     with open(os.path.join(task_dir, "zh-CN.vtt"), "w", encoding="utf-8") as f:

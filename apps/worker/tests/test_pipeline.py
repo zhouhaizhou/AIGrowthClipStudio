@@ -8,7 +8,9 @@ from agcs_worker.pipeline import run_task
 def _cfg(tmp_path):
     return Config(db_path="", storage_dir=str(tmp_path / "storage"),
                   poll_interval_ms=1000, asr_provider="mock",
-                  highlight_provider="mock", packaging_provider="mock")
+                  highlight_provider="mock", packaging_provider="mock",
+                  whisper_model="base", whisper_device="cpu",
+                  whisper_compute_type="int8", whisper_language="")
 
 
 def _insert_running_task(conn, source_video_url):
