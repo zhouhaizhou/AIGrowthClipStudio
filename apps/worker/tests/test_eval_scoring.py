@@ -30,3 +30,14 @@ def test_top3_only_first_three_count():
 
 def test_top3_empty_ground_truth():
     assert top3_hit_rate([(0, 100)], []) == 0.0
+
+
+def test_iou_adjacent_touching_is_zero():
+    # intervals that touch at a single point do not overlap
+    assert iou(0, 100, 100, 200) == 0.0
+
+
+def test_top3_partial_hit_rate():
+    pred = [(0, 100)]
+    gt = [(0, 100), (500, 600), (900, 1000)]
+    assert abs(top3_hit_rate(pred, gt) - (1 / 3)) < 1e-9
