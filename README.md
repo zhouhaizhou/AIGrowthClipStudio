@@ -43,6 +43,24 @@ ASR_PROVIDER=whisper WHISPER_MODEL=base python3 -m agcs_worker.main --once
 
 > 默认 CPU；如需 GPU（WHISPER_DEVICE=cuda），需另行安装 CUDA 版 CTranslate2，requirements.txt 不含。
 
+## LLM 高光（可选，M2a）
+
+默认 `HIGHLIGHT_PROVIDER=mock`。启用 Claude 高光识别：
+
+```bash
+cd apps/worker && python3 -m pip install -r requirements.txt   # 装 anthropic
+export ANTHROPIC_API_KEY=sk-...                                # 需要 key
+HIGHLIGHT_PROVIDER=llm LLM_MODEL=claude-sonnet-4-6 python3 -m agcs_worker.main --once
+```
+
+评测高光质量（对任意 provider 打 Top-3 命中率）：
+
+```bash
+cd apps/worker && python3 -m evals.run_eval --provider mock     # 或 --provider llm（需 key）
+```
+
+`HIGHLIGHT_PROVIDER` 可取 `mock`（默认）/`llm`（等价 `claude`）。`LLM_MODEL` 默认 `claude-sonnet-4-6`，要更强换 `claude-opus-4-8`。真实标注评测集为后续工作，当前仅含 1 个示例 fixture。
+
 ## 测试
 
 ```bash
