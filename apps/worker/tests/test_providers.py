@@ -18,6 +18,11 @@ def test_mock_highlight_respects_clip_count():
     assert all(s.recommended_scenario in ("feed", "membership") for s in segs)
 
 
+def test_mock_highlight_score_never_negative():
+    segs = MockHighlightProvider().analyze({"duration_ms": 60000, "clip_count": 30})
+    assert all(0.0 <= s.score <= 1.0 for s in segs)
+
+
 def test_mock_packaging_builds_copy():
     p = MockPackagingProvider().generate({"index": 0, "tags": ["逆袭"]})
     assert p.title

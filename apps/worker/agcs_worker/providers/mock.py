@@ -42,7 +42,7 @@ class MockHighlightProvider:
             end = min(start + win, duration_ms)
             out.append(HighlightSegment(
                 start_ms=start, end_ms=end, highlight_type=self.TYPES[i % len(self.TYPES)],
-                score=round(0.9 - i * 0.05, 2),
+                score=round(max(0.0, 0.9 - i * 0.05), 2),
                 reason="mock：信号缺失，基于占位规则选取（详见 02 设计的多信号方案）",
                 summary=f"高光片段 {i + 1}", transcript_text="（mock 字幕摘要）",
                 risk_level="low", recommended_scenario=scenarios[i % len(scenarios)],
