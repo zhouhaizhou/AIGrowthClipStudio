@@ -9,7 +9,7 @@ export default defineConfig({
       name: 'node-sqlite-shim',
       enforce: 'pre',
       resolveId(id) {
-        if (id === 'node:sqlite' || id === 'sqlite') {
+        if (id === 'node:sqlite') {
           return '\0node:sqlite'
         }
       },

@@ -4,6 +4,8 @@ import { fileURLToPath } from 'node:url'
 import { dirname, join } from 'node:path'
 
 const here = dirname(fileURLToPath(import.meta.url))
+// Path is relative to this source file; works because tsx runs TS directly (no build step).
+// If a compiled dist/ output is ever added, this relative path must be revisited.
 const SCHEMA_PATH = join(here, '../../../db/schema.sql')
 
 export type DB = DatabaseSync
