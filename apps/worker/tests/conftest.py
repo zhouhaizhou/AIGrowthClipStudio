@@ -1,8 +1,10 @@
 import os
-import sqlite3
+import shutil
 import subprocess
 
 import pytest
+
+from agcs_worker import db as dbm
 
 HERE = os.path.dirname(os.path.abspath(__file__))           # apps/worker/tests
 ROOT = os.path.normpath(os.path.join(HERE, "..", "..", "..")) # repo root
@@ -12,8 +14,7 @@ SCHEMA = os.path.join(ROOT, "db", "schema.sql")
 @pytest.fixture
 def conn(tmp_path):
     db_path = str(tmp_path / "t.db")
-    c = sqlite3.connect(db_path)
-    c.row_factory = sqlite3.Row
+    c = dbm.connect(db_path)
     with open(SCHEMA, "r", encoding="utf-8") as f:
         c.executescript(f.read())
     c.commit()
@@ -23,6 +24,8 @@ def conn(tmp_path):
 
 @pytest.fixture(scope="session")
 def sample_video(tmp_path_factory):
+    if shutil.which("ffmpeg") is None:
+        pytest.skip("ffmpeg not available")
     out = str(tmp_path_factory.mktemp("media") / "sample.mp4")
     subprocess.run(
         ["ffmpeg", "-y", "-f", "lavfi", "-i", "testsrc=duration=20:size=1280x720:rate=25",

@@ -20,6 +20,7 @@ def connect(db_path: str) -> sqlite3.Connection:
     return conn
 
 
+# worker_id is currently unused; reserved for a future worker-affinity column.
 def claim_next_task(conn: sqlite3.Connection, worker_id: str):
     row = conn.execute(
         "SELECT id FROM ai_clip_tasks WHERE status='queued' ORDER BY created_at ASC LIMIT 1"
@@ -31,13 +32,14 @@ def claim_next_task(conn: sqlite3.Connection, worker_id: str):
         "WHERE id=? AND status='queued'",
         (now_ms(), row["id"]),
     )
-    conn.commit()
     if cur.rowcount != 1:
+        conn.rollback()
         return None  # lost the race to another worker
+    conn.commit()
     return dict(conn.execute("SELECT * FROM ai_clip_tasks WHERE id=?", (row["id"],)).fetchone())
 
 
-def update_progress(conn, task_id: str, progress: int, current_step: str) -> None:
+def update_progress(conn: sqlite3.Connection, task_id: str, progress: int, current_step: str) -> None:
     conn.execute(
         "UPDATE ai_clip_tasks SET progress=?, current_step=?, updated_at=? WHERE id=?",
         (progress, current_step, now_ms(), task_id),
@@ -45,7 +47,7 @@ def update_progress(conn, task_id: str, progress: int, current_step: str) -> Non
     conn.commit()
 
 
-def mark_succeeded(conn, task_id: str) -> None:
+def mark_succeeded(conn: sqlite3.Connection, task_id: str) -> None:
     conn.execute(
         "UPDATE ai_clip_tasks SET status='succeeded', progress=100, current_step='done', updated_at=? "
         "WHERE id=?",
@@ -54,7 +56,7 @@ def mark_succeeded(conn, task_id: str) -> None:
     conn.commit()
 
 
-def mark_failed(conn, task_id: str, error_message: str) -> None:
+def mark_failed(conn: sqlite3.Connection, task_id: str, error_message: str) -> None:
     conn.execute(
         "UPDATE ai_clip_tasks SET status='failed', error_message=?, updated_at=? WHERE id=?",
         (error_message[:1000], now_ms(), task_id),
@@ -62,7 +64,9 @@ def mark_failed(conn, task_id: str, error_message: str) -> None:
     conn.commit()
 
 
-def insert_segment(conn, seg: dict) -> None:
+def insert_segment(conn: sqlite3.Connection, seg: dict) -> None:
+    pd = seg.get("packaging_draft")
+    packaging_draft = json.dumps(pd, ensure_ascii=False) if pd is not None else None
     conn.execute(
         "INSERT INTO ai_clip_segments (id, task_id, source_content_id, start_ms, end_ms, duration_ms, "
         "highlight_type, score, reason, summary, transcript_text, risk_level, risk_reason, "
@@ -70,13 +74,13 @@ def insert_segment(conn, seg: dict) -> None:
         (seg["id"], seg["task_id"], seg["source_content_id"], seg["start_ms"], seg["end_ms"],
          seg["duration_ms"], seg["highlight_type"], seg["score"], seg.get("reason"), seg.get("summary"),
          seg.get("transcript_text"), seg["risk_level"], seg.get("risk_reason"),
-         json.dumps(seg.get("packaging_draft"), ensure_ascii=False),
+         packaging_draft,
          seg.get("status", "candidate"), now_ms(), now_ms()),
     )
     conn.commit()
 
 
-def insert_asset(conn, a: dict) -> None:
+def insert_asset(conn: sqlite3.Connection, a: dict) -> None:
     conn.execute(
         "INSERT INTO ai_clip_assets (id, task_id, segment_id, source_content_id, scenario, duration, "
         "aspect_ratio, language, video_url, cover_url, subtitle_url, title, cover_text, "
