@@ -69,8 +69,8 @@ def _extract_tool_input(resp) -> dict:
 
 
 def _grounded_text(transcript: list, start_ms: int, end_ms: int) -> str:
-    return "".join(t["text"] for t in transcript
-                   if t["end_ms"] > start_ms and t["start_ms"] < end_ms)
+    return " ".join(t["text"] for t in transcript
+                    if t["end_ms"] > start_ms and t["start_ms"] < end_ms)
 
 
 def _to_segments(raw_segments, transcript, duration_ms, scenarios, clip_count) -> List[HighlightSegment]:

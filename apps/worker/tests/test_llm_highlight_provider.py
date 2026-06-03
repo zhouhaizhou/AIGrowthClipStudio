@@ -100,3 +100,10 @@ def test_nan_score_does_not_become_max():
     segs = ClaudeHighlightProvider(client=_FakeClient(raw)).analyze(_ctx())
     assert len(segs) == 1
     assert segs[0].score == 0.0   # NaN -> 0.0, not 1.0
+
+
+def test_grounds_multi_segment_window_with_separator():
+    raw = [{"startMs": 0, "endMs": 8000, "highlightType": "reversal", "score": 0.9,
+            "reason": "", "summary": "", "recommendedScenario": "feed", "riskLevel": "low"}]
+    segs = ClaudeHighlightProvider(client=_FakeClient(raw)).analyze(_ctx())
+    assert segs[0].transcript_text == "你不过是个没人要的女人。 等等，她竟然是董事长的女儿。"
