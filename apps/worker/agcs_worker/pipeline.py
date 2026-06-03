@@ -1,5 +1,6 @@
 import json
 import os
+from typing import Optional
 
 from . import db as dbm
 from . import ffmpeg
@@ -14,7 +15,7 @@ def get_providers(config: Config):
     return MockAsrProvider(), MockHighlightProvider(), MockPackagingProvider()
 
 
-def _local_path_from_url(url: str):
+def _local_path_from_url(url: Optional[str]) -> Optional[str]:
     if not url:
         return None
     if url.startswith("file://"):
@@ -59,7 +60,7 @@ def run_task(conn, config: Config, task: dict) -> None:
     target_scenarios = json.loads(task.get("target_scenarios") or '["feed"]')
     target_durations = json.loads(task.get("target_durations") or "[15]")
     target_aspect_ratios = json.loads(task.get("target_aspect_ratios") or '["9:16"]')
-    target_languages = json.loads(task.get("target_languages") or '["zh-CN"]')
+    target_languages = json.loads(task.get("target_languages") or '["zh-CN"]') or ["zh-CN"]
     tags = json.loads(task.get("tags") or "[]")
     highlights = highlight.analyze({
         "duration_ms": duration_ms,
@@ -69,6 +70,8 @@ def run_task(conn, config: Config, task: dict) -> None:
 
     # render + cover + packaging + persist
     dbm.update_progress(conn, task_id, 70, "render_clips")
+    # TODO(post-M0): wrap the per-segment insert/render loop in a transaction (or add
+    # cleanup-on-failure) so a mid-loop ffmpeg failure doesn't leave partial segments/assets.
     for idx, seg in enumerate(highlights):
         seg_id = dbm.new_id("segment")
         pack = packaging.generate({"index": idx, "tags": tags})

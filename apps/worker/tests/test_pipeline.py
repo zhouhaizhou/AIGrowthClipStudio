@@ -1,3 +1,5 @@
+import os
+
 from agcs_worker import db as dbm
 from agcs_worker.config import Config
 from agcs_worker.pipeline import run_task
@@ -31,7 +33,6 @@ def test_run_task_with_real_video(conn, sample_video, tmp_path):
     status = conn.execute("SELECT status FROM ai_clip_tasks WHERE id='task_p'").fetchone()["status"]
     assert status == "succeeded"
     # 真实 ffmpeg 产出非空 mp4：video_url 形如 /storage/<taskId>/clips/<assetId>.mp4
-    import os
     rel = assets[0]["video_url"].replace("/storage/", "", 1)
     clip_path = os.path.join(str(tmp_path / "storage"), rel)
     assert os.path.exists(clip_path) and os.path.getsize(clip_path) > 0
