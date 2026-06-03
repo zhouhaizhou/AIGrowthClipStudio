@@ -8,7 +8,7 @@ def _cfg(asr):
     return Config(db_path="", storage_dir="", poll_interval_ms=1000,
                   asr_provider=asr, highlight_provider="mock", packaging_provider="mock",
                   whisper_model="base", whisper_device="cpu", whisper_compute_type="int8",
-                  whisper_language="")
+                  whisper_language="", llm_model="claude-sonnet-4-6")
 
 
 def test_default_uses_mock_asr():
@@ -30,3 +30,18 @@ def test_unknown_asr_provider_falls_back_to_mock():
 def test_provider_audio_capability_flags():
     assert _build_asr(_cfg("mock")).needs_audio_file is False
     assert _build_asr(_cfg("whisper")).needs_audio_file is True
+
+
+def test_default_uses_mock_highlight():
+    from agcs_worker.providers.mock import MockHighlightProvider
+    _a, h, _p = get_providers(_cfg("mock"))
+    assert isinstance(h, MockHighlightProvider)
+
+
+def test_llm_selects_claude_highlight_without_client():
+    from agcs_worker.pipeline import _build_highlight
+    from agcs_worker.providers.llm_highlight import ClaudeHighlightProvider
+    cfg = _cfg("mock")
+    cfg.highlight_provider = "llm"
+    h = _build_highlight(cfg)
+    assert isinstance(h, ClaudeHighlightProvider)

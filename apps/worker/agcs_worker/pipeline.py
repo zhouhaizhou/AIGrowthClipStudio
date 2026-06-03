@@ -14,7 +14,16 @@ _log = logging.getLogger(__name__)
 
 
 def get_providers(config: Config):
-    return _build_asr(config), MockHighlightProvider(), MockPackagingProvider()
+    return _build_asr(config), _build_highlight(config), MockPackagingProvider()
+
+
+def _build_highlight(config: Config):
+    if config.highlight_provider in ("llm", "claude"):
+        from .providers.llm_highlight import ClaudeHighlightProvider  # lazy: avoid import on mock path
+        return ClaudeHighlightProvider(model=config.llm_model)
+    if config.highlight_provider != "mock":
+        _log.warning("Unknown HIGHLIGHT_PROVIDER %r; falling back to mock", config.highlight_provider)
+    return MockHighlightProvider()
 
 
 def _build_asr(config: Config):
@@ -86,6 +95,17 @@ def run_task(conn, config: Config, task: dict) -> None:
         "duration_ms": duration_ms,
         "clip_count": task.get("clip_count", 3),
         "target_scenarios": target_scenarios,
+        "target_durations": target_durations,
+        "transcript_segments": [
+            {"start_ms": s.start_ms, "end_ms": s.end_ms, "text": s.text}
+            for s in transcript.segments
+        ],
+        "content": {
+            "title": task.get("title"),
+            "description": task.get("description"),
+            "category": task.get("category"),
+            "tags": tags,
+        },
     })
 
     # render + cover + packaging + persist
