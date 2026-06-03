@@ -53,6 +53,8 @@ def _build_provider(name: str):
         from agcs_worker.config import load_config
         from agcs_worker.providers.llm_highlight import ClaudeHighlightProvider
         return ClaudeHighlightProvider(model=load_config().llm_model)
+    if name != "mock":
+        raise ValueError(f"Unknown provider {name!r}; choices: mock, llm, claude")
     from agcs_worker.providers.mock import MockHighlightProvider
     return MockHighlightProvider()
 
@@ -63,6 +65,9 @@ def main(argv=None) -> int:
     parser.add_argument("--fixtures", default=os.path.join(os.path.dirname(__file__), "fixtures"))
     parser.add_argument("--iou", type=float, default=0.5)
     args = parser.parse_args(argv)
+    if not os.path.isdir(args.fixtures):
+        print(f"error: fixtures directory not found: {args.fixtures}", file=sys.stderr)
+        return 1
     result = evaluate(_build_provider(args.provider), _load_fixtures(args.fixtures), args.iou)
     for p in result["per_fixture"]:
         print(f"{p['name']}: top3_hit_rate={p['score']:.3f}")
