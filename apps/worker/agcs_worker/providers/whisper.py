@@ -25,7 +25,8 @@ class WhisperAsrProvider:
 
     def transcribe(self, audio_path: str, duration_ms: int) -> Transcript:
         if not audio_path:
-            return Transcript(segments=[], vtt="WEBVTT\n")
+            return Transcript(segments=[], vtt="WEBVTT\n\n")
+        # duration_ms is unused here: faster-whisper derives timing from the audio file.
         model = self._ensure_model()
         raw_segments, _info = model.transcribe(audio_path, language=self._language)
         segs = []
