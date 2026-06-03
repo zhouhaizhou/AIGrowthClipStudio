@@ -14,7 +14,10 @@ def process_once(conn, config) -> bool:
     try:
         run_task(conn, config, task)
     except Exception as e:  # noqa: BLE001 - top-level guard: a task-level failure must not kill the worker
-        dbm.mark_failed(conn, task["id"], f"{type(e).__name__}: {e}")
+        try:
+            dbm.mark_failed(conn, task["id"], f"{type(e).__name__}: {e}")
+        except Exception:  # noqa: BLE001 - best-effort; task may stay 'running' (acceptable at M0)
+            pass
     return True
 
 
@@ -29,9 +32,12 @@ def main(argv=None) -> int:
     if args.once:
         return 0 if process_once(conn, config) else 1
 
-    while True:
-        if not process_once(conn, config):
-            time.sleep(config.poll_interval_ms / 1000)
+    try:
+        while True:
+            if not process_once(conn, config):
+                time.sleep(config.poll_interval_ms / 1000)
+    except KeyboardInterrupt:
+        return 0
 
 
 if __name__ == "__main__":
