@@ -65,6 +65,16 @@ cd apps/worker && python3 -m evals.run_eval --provider mock     # 或 --provider
 
 高光识别不只看字幕：worker 会从视频抽**音频能量**（RMS）和**场景切换**信号，融合成候选时间窗，写入 `storage/<task>/signals.json`，并在 `HIGHLIGHT_PROVIDER=llm` 时把候选窗带进 Claude 的 prompt（"优先在信号窗内选高光"）。纯本地、无需 key。
 
+## LLM 文案（M3）
+
+`PACKAGING_PROVIDER=llm` 时用 Claude 为每个高光片段生成标题/封面文案（≤12字）/推荐语/标签（默认 mock）。复用 `LLM_MODEL` 与 `ANTHROPIC_API_KEY`：
+
+```bash
+cd apps/worker && python3 -m pip install -r requirements.txt
+export ANTHROPIC_API_KEY=sk-...
+HIGHLIGHT_PROVIDER=llm PACKAGING_PROVIDER=llm python3 -m agcs_worker.main --once
+```
+
 ## 测试
 
 ```bash
