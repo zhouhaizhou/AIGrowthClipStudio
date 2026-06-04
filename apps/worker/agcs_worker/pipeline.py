@@ -15,7 +15,16 @@ _log = logging.getLogger(__name__)
 
 
 def get_providers(config: Config):
-    return _build_asr(config), _build_highlight(config), MockPackagingProvider()
+    return _build_asr(config), _build_highlight(config), _build_packaging(config)
+
+
+def _build_packaging(config: Config):
+    if config.packaging_provider in ("llm", "claude"):
+        from .providers.llm_packaging import ClaudePackagingProvider  # lazy: avoid import on mock path
+        return ClaudePackagingProvider(model=config.llm_model)
+    if config.packaging_provider != "mock":
+        _log.warning("Unknown PACKAGING_PROVIDER %r; falling back to mock", config.packaging_provider)
+    return MockPackagingProvider()
 
 
 def _build_highlight(config: Config):
@@ -133,7 +142,13 @@ def run_task(conn, config: Config, task: dict) -> None:
     # cleanup-on-failure) so a mid-loop ffmpeg failure doesn't leave partial segments/assets.
     for idx, seg in enumerate(highlights):
         seg_id = dbm.new_id("segment")
-        pack = packaging.generate({"index": idx, "tags": tags})
+        pack = packaging.generate({
+            "index": idx, "tags": tags,
+            "summary": seg.summary, "transcript_text": seg.transcript_text,
+            "highlight_type": seg.highlight_type, "scenario": seg.recommended_scenario,
+            "duration_ms": seg.end_ms - seg.start_ms,
+            "content": {"title": task.get("title"), "category": task.get("category")},
+        })
         dbm.insert_segment(conn, {
             "id": seg_id, "task_id": task_id, "source_content_id": task["source_content_id"],
             "start_ms": seg.start_ms, "end_ms": seg.end_ms,

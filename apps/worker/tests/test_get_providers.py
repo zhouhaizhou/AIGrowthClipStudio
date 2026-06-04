@@ -53,3 +53,25 @@ def test_unknown_highlight_provider_falls_back_to_mock():
     cfg = _cfg("mock")
     cfg.highlight_provider = "typo"
     assert isinstance(_build_highlight(cfg), MockHighlightProvider)
+
+
+def test_default_uses_mock_packaging():
+    from agcs_worker.providers.mock import MockPackagingProvider
+    _a, _h, p = get_providers(_cfg("mock"))
+    assert isinstance(p, MockPackagingProvider)
+
+
+def test_llm_selects_claude_packaging_without_client():
+    from agcs_worker.pipeline import _build_packaging
+    from agcs_worker.providers.llm_packaging import ClaudePackagingProvider
+    cfg = _cfg("mock")
+    cfg.packaging_provider = "llm"
+    assert isinstance(_build_packaging(cfg), ClaudePackagingProvider)
+
+
+def test_unknown_packaging_provider_falls_back_to_mock():
+    from agcs_worker.pipeline import _build_packaging
+    from agcs_worker.providers.mock import MockPackagingProvider
+    cfg = _cfg("mock")
+    cfg.packaging_provider = "typo"
+    assert isinstance(_build_packaging(cfg), MockPackagingProvider)
