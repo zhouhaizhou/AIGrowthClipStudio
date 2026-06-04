@@ -87,3 +87,13 @@ def test_string_ctx_tags_fallback_not_char_split():
     ctx["tags"] = "逆袭"   # ctx tags is a STRING (not a list)
     p = ClaudePackagingProvider(client=_FakeClient(payload)).generate(ctx)
     assert p.tags == []     # string fallback guarded -> empty, NOT ["逆","袭"]
+
+
+def test_none_fields_use_friendly_fallback_not_str_none():
+    payload = {"title": None, "coverText": None, "recommendationText": None, "tags": None}
+    p = ClaudePackagingProvider(client=_FakeClient(payload)).generate(_ctx())
+    assert p.title == "精彩片段"
+    assert "None" not in p.title
+    assert "None" not in p.cover_text
+    assert "None" not in p.recommendation_text
+    assert p.tags == ["逆袭"]   # tags None -> ctx fallback (_ctx has tags ["逆袭"])

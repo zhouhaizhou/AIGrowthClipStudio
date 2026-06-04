@@ -63,10 +63,13 @@ def _clean_tags(raw_tags, fallback) -> List[str]:
 
 
 def _to_packaging(raw: dict, ctx: dict, cover_max: int) -> Packaging:
-    title = str(raw.get("title", "")).strip() or "精彩片段"
-    cover = str(raw.get("coverText", "")).strip() or title
-    cover = cover[:cover_max]
-    rec = str(raw.get("recommendationText", "")).strip() or "高能片段，适合推荐流测试。"
+    def _s(key: str) -> str:
+        v = raw.get(key)
+        return v.strip() if isinstance(v, str) else ""
+
+    title = _s("title") or "精彩片段"
+    cover = (_s("coverText") or title)[:cover_max]
+    rec = _s("recommendationText") or "高能片段，适合推荐流测试。"
     tags = _clean_tags(raw.get("tags"), ctx.get("tags") or [])
     return Packaging(title=title, cover_text=cover, recommendation_text=rec, tags=tags)
 
