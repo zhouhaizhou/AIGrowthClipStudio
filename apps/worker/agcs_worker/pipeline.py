@@ -142,12 +142,17 @@ def run_task(conn, config: Config, task: dict) -> None:
     # cleanup-on-failure) so a mid-loop ffmpeg failure doesn't leave partial segments/assets.
     for idx, seg in enumerate(highlights):
         seg_id = dbm.new_id("segment")
+        # NOTE: on the llm packaging path this is one Claude call PER highlight (N/clip_count
+        # calls per task). M3 does not batch/cache; budget accordingly. See M3 spec §4.
         pack = packaging.generate({
             "index": idx, "tags": tags,
             "summary": seg.summary, "transcript_text": seg.transcript_text,
             "highlight_type": seg.highlight_type, "scenario": seg.recommended_scenario,
             "duration_ms": seg.end_ms - seg.start_ms,
-            "content": {"title": task.get("title"), "category": task.get("category")},
+            "content": {k: v for k, v in {
+                "title": task.get("title"),
+                "category": task.get("category"),
+            }.items() if v not in (None, "", [])},
         })
         dbm.insert_segment(conn, {
             "id": seg_id, "task_id": task_id, "source_content_id": task["source_content_id"],
