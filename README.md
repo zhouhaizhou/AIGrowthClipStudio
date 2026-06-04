@@ -30,6 +30,15 @@ cd apps/worker && python3 -m agcs_worker.main
 # 或处理一条后退出：python3 -m agcs_worker.main --once
 ```
 
+## 审核台（M4）
+
+API 在根路径托管一个零依赖的 Web 审核台：起 API + worker 后打开浏览器即可建任务、预览切片、审核通过/驳回。
+
+```bash
+cd apps/api && npm install && npm start          # http://localhost:8787/  ← 审核台
+cd apps/worker && python3 -m agcs_worker.main      # 另一终端，处理任务
+```
+
 ## 真实 ASR（可选，M1）
 
 默认 `ASR_PROVIDER=mock`，无需额外依赖。启用 faster-whisper（CPU）：
