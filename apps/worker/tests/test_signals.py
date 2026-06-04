@@ -56,3 +56,27 @@ def test_candidate_windows_scene_only():
 
 def test_candidate_windows_empty_signals():
     assert signals.candidate_windows(6000, [], []) == []
+
+
+def test_candidate_windows_no_output_overlaps():
+    # adjacent high-energy windows whose clip_ms candidates would overlap -> output is overlap-free
+    energy = [0, 0, 100, 100, 0, 0]
+    cands = signals.candidate_windows(3000, energy, [], window_ms=500, clip_ms=2000, top_k=5)
+    for i in range(len(cands)):
+        for j in range(i + 1, len(cands)):
+            a, b = cands[i], cands[j]
+            assert a["end_ms"] <= b["start_ms"] or a["start_ms"] >= b["end_ms"]
+
+
+def test_candidate_windows_combined_sources():
+    energy = [0, 0, 0, 0, 500, 500, 0, 0, 0, 0]   # high at window 4 (2000-2500ms)
+    scenes = [2.2, 2.4]                            # scene cuts in the same window
+    cands = signals.candidate_windows(5000, energy, scenes, window_ms=500, clip_ms=1000, top_k=3)
+    assert cands
+    assert "audio" in cands[0]["sources"] and "scene" in cands[0]["sources"]
+
+
+def test_candidate_windows_top_k_cap():
+    energy = [100] * 40                            # 40 equal windows over 20s
+    cands = signals.candidate_windows(20000, energy, [], window_ms=500, clip_ms=2000, top_k=3)
+    assert len(cands) <= 3

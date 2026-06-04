@@ -1,3 +1,5 @@
+# audioop: deprecated in Python 3.11, removed in 3.13. OK on 3.9; replace with a
+# struct-based RMS (or soundfile) when upgrading Python.
 import audioop
 import re
 import subprocess
@@ -6,7 +8,8 @@ from typing import List
 
 
 def audio_energy_profile(wav_path: str, window_ms: int = 500) -> List[int]:
-    """RMS energy per window_ms window of a PCM wav. Returns [] on any read failure."""
+    """RMS energy per window_ms window of a PCM wav. Returns [] on any read failure.
+    Note: loads the whole wav into memory (fine for short clips)."""
     try:
         with wave.open(wav_path, "rb") as w:
             sr = w.getframerate()
@@ -17,8 +20,12 @@ def audio_energy_profile(wav_path: str, window_ms: int = 500) -> List[int]:
         return []
     if not data or sr <= 0:
         return []
-    if ch > 1:
+    if ch == 2:
         data = audioop.tomono(data, sw, 0.5, 0.5)
+    elif ch > 2:
+        # tomono is stereo-only; for >2 channels take the first channel
+        frame = sw * ch
+        data = b"".join(data[i:i + sw] for i in range(0, len(data), frame))
     win_bytes = max(sw, int(sr * window_ms / 1000) * sw)
     profile = []
     for off in range(0, len(data), win_bytes):
@@ -29,7 +36,13 @@ def audio_energy_profile(wav_path: str, window_ms: int = 500) -> List[int]:
 
 
 def _parse_scene_times(stderr: str) -> List[float]:
-    return [float(m) for m in re.findall(r"pts_time:([0-9.]+)", stderr or "")]
+    out = []
+    for m in re.findall(r"pts_time:([0-9.]+)", stderr or ""):
+        try:
+            out.append(float(m))
+        except ValueError:
+            continue
+    return out
 
 
 def scene_change_times(video_path: str, threshold: float = 0.3) -> List[float]:
@@ -50,7 +63,7 @@ def candidate_windows(duration_ms: int, energy_profile: List[int], scene_times: 
     Each window scored = normalized_energy + scene_weight*scene_count; the highest-scoring
     window centers are expanded to clip_ms-wide windows, overlap-deduped, top_k kept.
     Returns [{start_ms, end_ms, score, sources}], score desc. Empty signals -> []."""
-    if duration_ms <= 0:
+    if duration_ms <= 0 or window_ms <= 0:
         return []
     num_windows = (duration_ms + window_ms - 1) // window_ms
     max_e = max(energy_profile) if energy_profile else 0
