@@ -5,6 +5,7 @@ from typing import Optional
 
 from . import db as dbm
 from . import ffmpeg
+from . import signals
 from .config import Config
 from .providers.mock import (
     MockAsrProvider, MockHighlightProvider, MockPackagingProvider,
@@ -84,6 +85,18 @@ def run_task(conn, config: Config, task: dict) -> None:
     with open(os.path.join(task_dir, "scenes.json"), "w", encoding="utf-8") as f:
         json.dump(scenes, f, ensure_ascii=False)
 
+    # multi-signal candidate windows (audio energy + scene cuts; real source only)
+    candidate_wins = []
+    audio_features = {}
+    if src:
+        energy = signals.audio_energy_profile(audio_path) if audio_path else []
+        scene_times = signals.scene_change_times(src)
+        candidate_wins = signals.candidate_windows(duration_ms, energy, scene_times)
+        audio_features = {"window_ms": 500, "energy_len": len(energy)}
+        with open(os.path.join(task_dir, "signals.json"), "w", encoding="utf-8") as f:
+            json.dump({"candidate_windows": candidate_wins, "audio_features": audio_features,
+                       "scene_change_count": len(scene_times)}, f, ensure_ascii=False)
+
     # analyze_highlights (mock)
     dbm.update_progress(conn, task_id, 50, "analyze_highlights")
     target_scenarios = json.loads(task.get("target_scenarios") or '["feed"]')
@@ -106,6 +119,8 @@ def run_task(conn, config: Config, task: dict) -> None:
             "category": task.get("category"),
             "tags": tags,
         }.items() if v not in (None, "", [])},
+        "candidate_windows": candidate_wins,
+        "audio_features": audio_features,
     })
 
     # render + cover + packaging + persist

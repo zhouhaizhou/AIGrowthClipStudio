@@ -40,6 +40,14 @@ def test_run_task_with_real_video(conn, sample_video, tmp_path):
     clip_path = os.path.join(str(tmp_path / "storage"), rel)
     assert os.path.exists(clip_path) and os.path.getsize(clip_path) > 0
 
+    # M2b: signals.json artifact written for a real source
+    sig_path = os.path.join(str(tmp_path / "storage"), "task_p", "signals.json")
+    assert os.path.exists(sig_path)
+    import json as _json
+    with open(sig_path, encoding="utf-8") as f:
+        sig = _json.load(f)
+    assert "candidate_windows" in sig
+
 
 def test_run_task_stub_without_video(conn, tmp_path):
     task = _insert_running_task(conn, "")
