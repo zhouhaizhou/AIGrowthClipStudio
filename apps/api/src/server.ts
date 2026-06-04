@@ -1,14 +1,19 @@
 import Fastify, { type FastifyInstance } from 'fastify'
 import fastifyStatic from '@fastify/static'
-import { resolve } from 'node:path'
+import { resolve, dirname, join } from 'node:path'
+import { fileURLToPath } from 'node:url'
 import type { DB } from './db.js'
 import { CreateTaskBody, ReviewBody } from './schemas.js'
 import * as repo from './repository.js'
 
-export function buildServer(db: DB, storageDir: string): FastifyInstance {
+const here = dirname(fileURLToPath(import.meta.url))
+const DEFAULT_WEB_DIR = join(here, '../web')
+
+export function buildServer(db: DB, storageDir: string, webDir: string = DEFAULT_WEB_DIR): FastifyInstance {
   const app = Fastify({ logger: false })
 
   app.register(fastifyStatic, { root: resolve(storageDir), prefix: '/storage/' })
+  app.register(fastifyStatic, { root: resolve(webDir), prefix: '/', decorateReply: false })
 
   app.post('/api/ai-growth-clip/tasks', async (req, reply) => {
     const parsed = CreateTaskBody.safeParse(req.body)
