@@ -1,4 +1,81 @@
 <!doctype html>
+<html lang="zh-CN">
+<head>
 <meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
 <title>AI Growth Clip Studio — 审核台</title>
-<body>审核台占位（完整控制台稍后替换）</body>
+<style>
+  :root { --bg:#0f1115; --card:#1a1d24; --line:#2a2f3a; --fg:#e6e8ee; --mut:#9aa3b2; --acc:#4f8cff; --ok:#2ecc71; --bad:#e74c3c; }
+  * { box-sizing:border-box; } body { margin:0; font:14px/1.5 system-ui,-apple-system,"PingFang SC",sans-serif; background:var(--bg); color:var(--fg); }
+  header { padding:16px 20px; border-bottom:1px solid var(--line); display:flex; align-items:baseline; gap:12px; }
+  header h1 { font-size:18px; margin:0; } header span { color:var(--mut); font-size:12px; }
+  main { padding:20px; max-width:1200px; margin:0 auto; } section { margin-bottom:24px; }
+  h2 { font-size:13px; color:var(--mut); text-transform:uppercase; letter-spacing:.05em; margin:0 0 10px; }
+  .row { display:flex; flex-wrap:wrap; gap:10px; align-items:center; justify-content:space-between; }
+  .card { background:var(--card); border:1px solid var(--line); border-radius:10px; padding:14px; }
+  label { display:block; font-size:12px; color:var(--mut); margin:8px 0 4px; }
+  input,textarea { width:100%; background:#0c0e12; border:1px solid var(--line); color:var(--fg); border-radius:6px; padding:7px 9px; font:inherit; }
+  textarea { resize:vertical; min-height:38px; }
+  button { background:var(--acc); color:#fff; border:0; border-radius:6px; padding:8px 14px; cursor:pointer; font-weight:600; }
+  button.ghost { background:transparent; border:1px solid var(--line); color:var(--fg); }
+  button.ok { background:var(--ok); } button.bad { background:var(--bad); }
+  .grid3 { display:grid; grid-template-columns:repeat(auto-fill,minmax(180px,1fr)); gap:8px; }
+  .checks { display:flex; flex-wrap:wrap; gap:12px; } .checks label { display:flex; align-items:center; gap:5px; margin:0; color:var(--fg); }
+  table { width:100%; border-collapse:collapse; } th,td { text-align:left; padding:7px 8px; border-bottom:1px solid var(--line); font-size:13px; }
+  tr.task { cursor:pointer; } tr.sel { background:#222838; }
+  .badge { display:inline-block; padding:2px 8px; border-radius:99px; font-size:11px; font-weight:600; }
+  .b-queued{background:#33405a;color:#cbd6ee}.b-running{background:#3a3357;color:#d8cbf0}.b-succeeded{background:#1f4a35;color:#9ff0c2}.b-failed{background:#4a2222;color:#f0a0a0}
+  .b-pending_review{background:#4a4322;color:#f0e0a0}.b-approved{background:#1f4a35;color:#9ff0c2}.b-rejected{background:#4a2222;color:#f0a0a0}
+  .assets { display:grid; grid-template-columns:repeat(auto-fill,minmax(280px,1fr)); gap:14px; }
+  .asset video { width:100%; border-radius:8px; background:#000; aspect-ratio:9/16; max-height:420px; }
+  .asset .meta { color:var(--mut); font-size:12px; margin:6px 0; } .tag { display:inline-block; background:#222838; border-radius:99px; padding:1px 8px; margin:2px 4px 0 0; font-size:11px; }
+  #toast { position:fixed; top:14px; right:14px; max-width:360px; z-index:9; } .toast { background:var(--card); border:1px solid var(--line); border-left:3px solid var(--acc); border-radius:8px; padding:10px 12px; margin-bottom:8px; font-size:13px; } .toast.err { border-left-color:var(--bad); }
+  details summary { cursor:pointer; color:var(--mut); } .muted { color:var(--mut); }
+</style>
+</head>
+<body>
+<header><h1>AI Growth Clip Studio</h1><span>增长素材审核台</span></header>
+<main>
+  <section class="card"><details><summary>＋ 创建任务</summary><div style="margin-top:12px">
+    <div class="grid3">
+      <div><label>sourceContentId</label><input id="f-cid" value="demo-1"></div>
+      <div><label>sourceVideoUrl（支持 file://）</label><input id="f-url" placeholder="file:///abs/sample.mp4"></div>
+      <div><label>title</label><input id="f-title" value="她被退婚后身份曝光"></div>
+      <div><label>category</label><input id="f-cat" value="短剧"></div>
+      <div><label>tags（逗号分隔）</label><input id="f-tags" value="逆袭,豪门,复仇"></div>
+      <div><label>clipCount</label><input id="f-count" type="number" value="3" min="1"></div>
+    </div>
+    <label>targetScenarios</label><div class="checks" id="f-scen"></div>
+    <label>targetDurations</label><div class="checks" id="f-dur"></div>
+    <label>targetAspectRatios</label><div class="checks" id="f-ar"></div>
+    <div style="margin-top:12px"><button id="btn-create">创建任务</button></div>
+  </div></details></section>
+
+  <section><div class="row"><h2>任务</h2><button class="ghost" id="btn-refresh">刷新</button></div>
+    <div class="card"><table><thead><tr><th>id</th><th>title</th><th>状态</th><th>进度</th></tr></thead><tbody id="tasks"></tbody></table></div></section>
+
+  <section><h2 id="assets-h">素材</h2><div class="assets" id="assets"><span class="muted">选择上方任务查看素材</span></div></section>
+</main>
+<div id="toast"></div>
+<script>
+const API='/api/ai-growth-clip', SCEN=['feed','detail','ad','membership','social'], DUR=['15','30','60'], AR=['9:16','16:9','1:1','4:5'];
+let selectedTask=null;
+const $=id=>document.getElementById(id);
+function esc(s){return String(s==null?'':s).replace(/[&<>"]/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c]));}
+function toast(m,err){const d=document.createElement('div');d.className='toast'+(err?' err':'');d.textContent=m;$('toast').appendChild(d);setTimeout(()=>d.remove(),4000);}
+async function api(path,opts){const r=await fetch(API+path,opts);const t=await r.text();const d=t?JSON.parse(t):null;if(!r.ok)throw new Error((d&&(d.error||JSON.stringify(d)))||('HTTP '+r.status));return d;}
+function checks(el,vals,preset){el.innerHTML='';vals.forEach(v=>{const l=document.createElement('label');l.innerHTML='<input type="checkbox" value="'+v+'"'+(preset.includes(v)?' checked':'')+'> '+v;el.appendChild(l);});}
+function picked(el){return [...el.querySelectorAll('input:checked')].map(i=>i.value);}
+function badge(s){return '<span class="badge b-'+esc(s)+'">'+esc(s)+'</span>';}
+checks($('f-scen'),SCEN,['feed']);checks($('f-dur'),DUR,['15','30']);checks($('f-ar'),AR,['9:16']);
+$('btn-create').onclick=async()=>{try{const body={sourceContentId:$('f-cid').value.trim(),sourceContentType:'episode',sourceVideoUrl:$('f-url').value.trim(),title:$('f-title').value.trim(),category:$('f-cat').value.trim(),tags:$('f-tags').value.split(',').map(s=>s.trim()).filter(Boolean),targetScenarios:picked($('f-scen')),targetDurations:picked($('f-dur')).map(Number),targetAspectRatios:picked($('f-ar')),clipCount:Number($('f-count').value)};const r=await api('/tasks',{method:'POST',headers:{'content-type':'application/json'},body:JSON.stringify(body)});toast('已创建任务 '+r.taskId+'（worker 处理后点刷新）');loadTasks();}catch(e){toast('创建失败：'+e.message,true);}};
+$('btn-refresh').onclick=loadTasks;
+async function loadTasks(){try{const r=await api('/tasks');const tb=$('tasks');tb.innerHTML='';if(!r.list.length){tb.innerHTML='<tr><td colspan="4" class="muted">暂无任务</td></tr>';return;}r.list.forEach(t=>{const tr=document.createElement('tr');tr.className='task'+(selectedTask===t.id?' sel':'');tr.innerHTML='<td>'+esc(t.id.slice(0,16))+'…</td><td>'+(t.title?esc(t.title):'<span class=muted>—</span>')+'</td><td>'+badge(t.status)+'</td><td>'+(t.progress||0)+'%</td>';tr.onclick=()=>loadAssets(t.id);tb.appendChild(tr);});}catch(e){toast('载入任务失败：'+e.message,true);}}
+async function loadAssets(id){selectedTask=id;loadTasks();$('assets-h').textContent='素材 · '+id.slice(0,16)+'…';const box=$('assets');box.innerHTML='<span class="muted">载入中…</span>';try{const r=await api('/tasks/'+id+'/assets');box.innerHTML='';if(!r.list.length){box.innerHTML='<span class="muted">暂无素材（确认 worker 已运行并处理完成）</span>';return;}r.list.forEach(a=>box.appendChild(card(a)));}catch(e){box.innerHTML='';toast('载入素材失败：'+e.message,true);}}
+function card(a){const c=document.createElement('div');c.className='asset card';c.innerHTML='<video controls preload="metadata" src="'+esc(a.videoUrl)+'"'+(a.coverUrl?' poster="'+esc(a.coverUrl)+'"':'')+'></video><div class="meta">'+esc(a.scenario)+' · '+esc(a.duration)+'s · '+esc(a.aspectRatio)+' · '+badge(a.status)+'</div><label>标题</label><input class="i-title" value="'+esc(a.title)+'"><label>封面文案</label><input class="i-cover" value="'+esc(a.coverText)+'"><label>推荐语</label><textarea class="i-rec">'+esc(a.recommendationText)+'</textarea><div style="margin:6px 0">'+(a.tags||[]).map(t=>'<span class="tag">'+esc(t)+'</span>').join('')+'</div><div class="row" style="justify-content:flex-start;gap:8px"><button class="ok" data-testid="approve">通过</button><button class="bad">驳回</button></div>';
+const review=async status=>{try{const body={status,title:c.querySelector('.i-title').value,coverText:c.querySelector('.i-cover').value,recommendationText:c.querySelector('.i-rec').value};const u=await api('/assets/'+a.id+'/review',{method:'POST',headers:{'content-type':'application/json'},body:JSON.stringify(body)});c.replaceWith(card(u));toast('已'+(status==='approved'?'通过':'驳回'));}catch(e){toast('审核失败：'+e.message,true);}};
+c.querySelector('.ok').onclick=()=>review('approved');c.querySelector('.bad').onclick=()=>review('rejected');return c;}
+loadTasks();
+</script>
+</body>
+</html>
