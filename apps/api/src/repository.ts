@@ -14,6 +14,8 @@ function parseTags(value: unknown): string[] {
 
 export interface TaskSummary {
   id: string
+  sourceContentId: string
+  title: string | null
   status: string
   progress: number
   currentStep: string | null
@@ -41,6 +43,8 @@ export interface AssetDto {
 function toTaskSummary(row: any): TaskSummary {
   return {
     id: row.id,
+    sourceContentId: row.source_content_id,
+    title: row.title ?? null,
     status: row.status,
     progress: row.progress,
     currentStep: row.current_step ?? null,

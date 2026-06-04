@@ -71,3 +71,13 @@ describe('repository', () => {
     expect(repo.reviewAsset(db, 'nope', { status: 'approved' })).toBeUndefined()
   })
 })
+
+describe('task summary fields', () => {
+  it('includes sourceContentId and title', () => {
+    const db = openDb(':memory:')
+    repo.createTask(db, { ...(baseInput as any), title: 'T-标题' })
+    const t = repo.listTasks(db, {})[0] as any
+    expect(t.sourceContentId).toBe('12345')
+    expect(t.title).toBe('T-标题')
+  })
+})
