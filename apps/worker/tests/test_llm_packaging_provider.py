@@ -79,3 +79,11 @@ def test_missing_tool_block_falls_back():
 
     p = ClaudePackagingProvider(client=_C()).generate(_ctx())
     assert p.title == "精彩片段"
+
+
+def test_string_ctx_tags_fallback_not_char_split():
+    payload = {"title": "t", "coverText": "c", "recommendationText": "r", "tags": "notalist"}
+    ctx = _ctx()
+    ctx["tags"] = "逆袭"   # ctx tags is a STRING (not a list)
+    p = ClaudePackagingProvider(client=_FakeClient(payload)).generate(ctx)
+    assert p.tags == []     # string fallback guarded -> empty, NOT ["逆","袭"]

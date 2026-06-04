@@ -1,7 +1,10 @@
 import json as _json
+import logging
 from typing import List
 
 from .base import Packaging
+
+_log = logging.getLogger(__name__)
 
 SYSTEM_PROMPT = (
     "你是短剧增长运营。为一个高光片段生成运营包装文案：标题适合推荐流点击但不夸大到与剧情不符；"
@@ -46,15 +49,17 @@ def _extract_tool_input(resp) -> dict:
 
 
 def _clean_tags(raw_tags, fallback) -> List[str]:
+    safe_fallback = [t.strip() for t in (fallback if isinstance(fallback, list) else [])
+                     if isinstance(t, str) and t.strip()][:6]
     if not isinstance(raw_tags, list):
-        return list(fallback)
+        return safe_fallback
     out: List[str] = []
     for t in raw_tags:
         if isinstance(t, str):
             s = t.strip()
             if s and s not in out:
                 out.append(s)
-    return out[:6] if out else list(fallback)
+    return out[:6] if out else safe_fallback
 
 
 def _to_packaging(raw: dict, ctx: dict, cover_max: int) -> Packaging:
@@ -91,4 +96,6 @@ class ClaudePackagingProvider:
             messages=[{"role": "user", "content": _build_user(ctx)}],
         )
         raw = _extract_tool_input(resp)
+        if not raw:
+            _log.warning("ClaudePackagingProvider: no report_packaging tool_use block in response")
         return _to_packaging(raw, ctx, self._cover_max)
