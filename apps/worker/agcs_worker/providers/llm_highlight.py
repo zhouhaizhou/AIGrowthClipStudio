@@ -48,16 +48,21 @@ HIGHLIGHT_TOOL = {
 
 
 def _build_user(content: dict, transcript: list, scenarios: list,
-                clip_count: int, duration_ms: int) -> str:
-    # TODO(post-M2a): truncate/window the transcript to fit the context window for long videos.
+                clip_count: int, duration_ms: int, candidate_windows: list) -> str:
     lines = [f"[{t['start_ms']}-{t['end_ms']}] {t['text']}" for t in transcript]
-    return (
+    msg = (
         f"内容元信息：{_json.dumps(content, ensure_ascii=False)}\n"
         f"视频总时长(ms)：{duration_ms}\n"
         f"目标场景：{scenarios}\n"
         f"需要的高光数量：{clip_count}\n"
         f"字幕（每行 [起-止ms] 文本）：\n" + "\n".join(lines)
     )
+    if candidate_windows:
+        cw = "\n".join(
+            f"[{c['start_ms']}-{c['end_ms']}] score={c.get('score')}" for c in candidate_windows
+        )
+        msg += ("\n\n信号定位的候选窗（优先在这些窗内选择/细化高光边界，可微调但不要远离所有候选窗）：\n" + cw)
+    return msg
 
 
 def _extract_tool_input(resp) -> dict:
@@ -132,6 +137,7 @@ class ClaudeHighlightProvider:
         clip_count = ctx.get("clip_count", 3)
         scenarios = ctx.get("target_scenarios") or ["feed"]
         content = ctx.get("content") or {}
+        candidate_windows = ctx.get("candidate_windows") or []
         client = self._ensure_client()
         resp = client.messages.create(
             model=self._model,
@@ -141,7 +147,8 @@ class ClaudeHighlightProvider:
             tools=[HIGHLIGHT_TOOL],
             tool_choice={"type": "tool", "name": "report_highlights"},
             messages=[{"role": "user",
-                       "content": _build_user(content, transcript, scenarios, clip_count, duration_ms)}],
+                       "content": _build_user(content, transcript, scenarios, clip_count,
+                                              duration_ms, candidate_windows)}],
         )
         raw = _extract_tool_input(resp)
         if not raw:

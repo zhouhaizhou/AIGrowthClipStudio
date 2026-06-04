@@ -107,3 +107,22 @@ def test_grounds_multi_segment_window_with_separator():
             "reason": "", "summary": "", "recommendedScenario": "feed", "riskLevel": "low"}]
     segs = ClaudeHighlightProvider(client=_FakeClient(raw)).analyze(_ctx())
     assert segs[0].transcript_text == "你不过是个没人要的女人。 等等，她竟然是董事长的女儿。"
+
+
+def test_candidate_windows_go_into_prompt():
+    raw = [{"startMs": 0, "endMs": 4000, "highlightType": "conflict", "score": 0.9,
+            "reason": "", "summary": "", "recommendedScenario": "feed", "riskLevel": "low"}]
+    fake = _FakeClient(raw)
+    ctx = _ctx()
+    ctx["candidate_windows"] = [{"start_ms": 1000, "end_ms": 5000, "score": 0.8}]
+    ClaudeHighlightProvider(client=fake).analyze(ctx)
+    user_msg = fake.messages.calls[0]["messages"][0]["content"]
+    assert "候选窗" in user_msg and "1000-5000" in user_msg
+
+
+def test_no_candidate_windows_keeps_prompt_plain():
+    raw = [{"startMs": 0, "endMs": 4000, "highlightType": "conflict", "score": 0.9,
+            "reason": "", "summary": "", "recommendedScenario": "feed", "riskLevel": "low"}]
+    fake = _FakeClient(raw)
+    ClaudeHighlightProvider(client=fake).analyze(_ctx())  # _ctx has no candidate_windows
+    assert "候选窗" not in fake.messages.calls[0]["messages"][0]["content"]
