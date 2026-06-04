@@ -118,6 +118,7 @@ def test_candidate_windows_go_into_prompt():
     ClaudeHighlightProvider(client=fake).analyze(ctx)
     user_msg = fake.messages.calls[0]["messages"][0]["content"]
     assert "候选窗" in user_msg and "1000-5000" in user_msg
+    assert "score=0.8" in user_msg
 
 
 def test_no_candidate_windows_keeps_prompt_plain():

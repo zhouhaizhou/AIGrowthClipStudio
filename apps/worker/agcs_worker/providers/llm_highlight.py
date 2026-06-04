@@ -49,6 +49,7 @@ HIGHLIGHT_TOOL = {
 
 def _build_user(content: dict, transcript: list, scenarios: list,
                 clip_count: int, duration_ms: int, candidate_windows: list) -> str:
+    # TODO(post-M2a): truncate/window the transcript to fit the context window for long videos.
     lines = [f"[{t['start_ms']}-{t['end_ms']}] {t['text']}" for t in transcript]
     msg = (
         f"内容元信息：{_json.dumps(content, ensure_ascii=False)}\n"
@@ -59,7 +60,7 @@ def _build_user(content: dict, transcript: list, scenarios: list,
     )
     if candidate_windows:
         cw = "\n".join(
-            f"[{c['start_ms']}-{c['end_ms']}] score={c.get('score')}" for c in candidate_windows
+            f"[{c.get('start_ms')}-{c.get('end_ms')}] score={c.get('score', 0)}" for c in candidate_windows
         )
         msg += ("\n\n信号定位的候选窗（优先在这些窗内选择/细化高光边界，可微调但不要远离所有候选窗）：\n" + cw)
     return msg
