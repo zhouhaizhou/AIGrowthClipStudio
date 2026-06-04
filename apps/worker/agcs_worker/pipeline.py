@@ -85,7 +85,11 @@ def run_task(conn, config: Config, task: dict) -> None:
     with open(os.path.join(task_dir, "scenes.json"), "w", encoding="utf-8") as f:
         json.dump(scenes, f, ensure_ascii=False)
 
-    # multi-signal candidate windows (audio energy + scene cuts; real source only)
+    # multi-signal candidate windows (audio energy + scene cuts; real source only).
+    # signals.json is written for any real source (useful debug artifact). NOTE:
+    # scene_change_times is an extra full-video ffmpeg pass; for production with long
+    # videos + a provider that ignores signals (e.g. mock), gate this behind a provider
+    # capability (cf. needs_audio_file). candidate_windows is consumed by the LLM prompt.
     candidate_wins = []
     audio_features = {}
     if src:
