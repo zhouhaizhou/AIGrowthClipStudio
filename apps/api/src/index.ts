@@ -5,13 +5,14 @@ import { buildServer } from './server.js'
 
 const DB_PATH = process.env.DB_PATH ?? './data/agcs.db'
 const STORAGE_DIR = process.env.STORAGE_DIR ?? './storage'
+const WEB_DIR = process.env.WEB_DIR
 const PORT = Number(process.env.API_PORT ?? 8787)
 
 mkdirSync(dirname(DB_PATH), { recursive: true })
 mkdirSync(STORAGE_DIR, { recursive: true })
 
 const db = openDb(DB_PATH)
-const app = buildServer(db, STORAGE_DIR)
+const app = buildServer(db, STORAGE_DIR, WEB_DIR)
 
 app
   .listen({ port: PORT, host: '0.0.0.0' })

@@ -7,13 +7,15 @@ import { CreateTaskBody, ReviewBody } from './schemas.js'
 import * as repo from './repository.js'
 
 const here = dirname(fileURLToPath(import.meta.url))
+// Relative to this source file; works under tsx (no build step). If a compiled dist/
+// output is ever added, this path must be revisited (same caveat as db.ts schema path).
 const DEFAULT_WEB_DIR = join(here, '../web')
 
 export function buildServer(db: DB, storageDir: string, webDir: string = DEFAULT_WEB_DIR): FastifyInstance {
   const app = Fastify({ logger: false })
 
   app.register(fastifyStatic, { root: resolve(storageDir), prefix: '/storage/' })
-  app.register(fastifyStatic, { root: resolve(webDir), prefix: '/', decorateReply: false })
+  app.register(fastifyStatic, { root: resolve(webDir), prefix: '/', decorateReply: false, dotfiles: 'ignore' })
 
   app.post('/api/ai-growth-clip/tasks', async (req, reply) => {
     const parsed = CreateTaskBody.safeParse(req.body)

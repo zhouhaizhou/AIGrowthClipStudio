@@ -27,4 +27,10 @@ describe('console serving', () => {
     expect(res.statusCode).toBe(200)
     expect(JSON.parse(res.body)).toHaveProperty('list')
   })
+
+  it('GET /storage/missing.mp4 returns 404 (storage static still active)', async () => {
+    const app = setup()
+    const res = await app.inject({ method: 'GET', url: '/storage/missing.mp4' })
+    expect(res.statusCode).toBe(404)
+  })
 })

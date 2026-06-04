@@ -81,3 +81,11 @@ describe('task summary fields', () => {
     expect(t.title).toBe('T-标题')
   })
 })
+
+describe('task summary null title', () => {
+  it('title is null when not provided', () => {
+    const db = openDb(':memory:')
+    repo.createTask(db, baseInput as any)   // baseInput has no title
+    expect((repo.listTasks(db, {})[0] as any).title).toBeNull()
+  })
+})
