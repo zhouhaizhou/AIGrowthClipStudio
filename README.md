@@ -61,6 +61,10 @@ cd apps/worker && python3 -m evals.run_eval --provider mock     # 或 --provider
 
 `HIGHLIGHT_PROVIDER` 可取 `mock`（默认）/`llm`（等价 `claude`）。`LLM_MODEL` 默认 `claude-sonnet-4-6`，要更强换 `claude-opus-4-8`。真实标注评测集为后续工作，当前仅含 1 个示例 fixture。
 
+## 多信号候选窗（M2b）
+
+高光识别不只看字幕：worker 会从视频抽**音频能量**（RMS）和**场景切换**信号，融合成候选时间窗，写入 `storage/<task>/signals.json`，并在 `HIGHLIGHT_PROVIDER=llm` 时把候选窗带进 Claude 的 prompt（"优先在信号窗内选高光"）。纯本地、无需 key。
+
 ## 测试
 
 ```bash
