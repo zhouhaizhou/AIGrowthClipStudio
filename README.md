@@ -84,6 +84,22 @@ export ANTHROPIC_API_KEY=sk-...
 HIGHLIGHT_PROVIDER=llm PACKAGING_PROVIDER=llm python3 -m agcs_worker.main --once
 ```
 
+## 效果回流 / 效果分析（M5）
+
+审核台内置「效果分析」面板，对接三条 API：
+
+| 端点 | 说明 |
+|------|------|
+| `POST /api/ai-growth-clip/assets/:id/metrics` | 上报单条素材指标（impressions/clicks/plays/completions/shares，均可选非负整数） |
+| `GET  /api/ai-growth-clip/analytics/summary` | 聚合汇总 → `{ totals, byScenario, byHighlightType, suggestions }` |
+
+**Demo 演示步骤：**
+
+1. 起 API + worker，浏览器打开 `http://localhost:8787/`
+2. 创建一个任务并等待 worker 处理完成（点「刷新」直到状态 succeeded）
+3. 选中任务，在每张素材卡上点几次**「模拟埋点」**（随机上报：固定曝光 50，随机点击/播放/完播/分享）
+4. 点「效果分析」区块的**「刷新」**，即可看到非零聚合数据（总览 + 按场景 + 按高光类型表格）以及优化建议
+
 ## 测试
 
 ```bash

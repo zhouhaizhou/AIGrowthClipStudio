@@ -55,6 +55,13 @@
     <div class="card"><table><thead><tr><th>id</th><th>title</th><th>状态</th><th>进度</th></tr></thead><tbody id="tasks"></tbody></table></div></section>
 
   <section><h2 id="assets-h">素材</h2><div class="assets" id="assets"><span class="muted">选择上方任务查看素材</span></div></section>
+
+  <section>
+    <div class="row"><h2>效果分析</h2><button class="ghost" id="btn-analytics">刷新</button></div>
+    <div class="card" id="analytics-panel">
+      <div class="muted">点「刷新」载入聚合数据</div>
+    </div>
+  </section>
 </main>
 <div id="toast"></div>
 <script>
@@ -72,9 +79,38 @@ $('btn-create').onclick=async()=>{try{const body={sourceContentId:$('f-cid').val
 $('btn-refresh').onclick=loadTasks;
 async function loadTasks(){try{const r=await api('/tasks');const tb=$('tasks');tb.innerHTML='';if(!r.list.length){tb.innerHTML='<tr><td colspan="4" class="muted">暂无任务</td></tr>';return;}r.list.forEach(t=>{const tr=document.createElement('tr');tr.className='task'+(selectedTask===t.id?' sel':'');tr.innerHTML='<td>'+esc(t.id.slice(0,16))+'…</td><td>'+(t.title?esc(t.title):'<span class=muted>—</span>')+'</td><td>'+badge(t.status)+'</td><td>'+(t.progress||0)+'%</td>';tr.onclick=()=>loadAssets(t.id);tb.appendChild(tr);});}catch(e){toast('载入任务失败：'+e.message,true);}}
 async function loadAssets(id){selectedTask=id;loadTasks();$('assets-h').textContent='素材 · '+id.slice(0,16)+'…';const box=$('assets');box.innerHTML='<span class="muted">载入中…</span>';try{const r=await api('/tasks/'+id+'/assets');box.innerHTML='';if(!r.list.length){box.innerHTML='<span class="muted">暂无素材（确认 worker 已运行并处理完成）</span>';return;}r.list.forEach(a=>box.appendChild(card(a)));}catch(e){box.innerHTML='';toast('载入素材失败：'+e.message,true);}}
-function card(a){const c=document.createElement('div');c.className='asset card';c.innerHTML='<video controls preload="metadata" src="'+esc(a.videoUrl)+'"'+(a.coverUrl?' poster="'+esc(a.coverUrl)+'"':'')+'></video><div class="meta">'+esc(a.scenario)+' · '+esc(a.duration)+'s · '+esc(a.aspectRatio)+' · '+badge(a.status)+'</div><label>标题</label><input class="i-title" value="'+esc(a.title)+'"><label>封面文案</label><input class="i-cover" value="'+esc(a.coverText)+'"><label>推荐语</label><textarea class="i-rec">'+esc(a.recommendationText)+'</textarea><div style="margin:6px 0">'+(a.tags||[]).map(t=>'<span class="tag">'+esc(t)+'</span>').join('')+'</div><div class="row" style="justify-content:flex-start;gap:8px"><button class="ok" data-testid="approve">通过</button><button class="bad">驳回</button></div>';
+function card(a){const c=document.createElement('div');c.className='asset card';c.innerHTML='<video controls preload="metadata" src="'+esc(a.videoUrl)+'"'+(a.coverUrl?' poster="'+esc(a.coverUrl)+'"':'')+'></video><div class="meta">'+esc(a.scenario)+' · '+esc(a.duration)+'s · '+esc(a.aspectRatio)+' · '+badge(a.status)+'</div><label>标题</label><input class="i-title" value="'+esc(a.title)+'"><label>封面文案</label><input class="i-cover" value="'+esc(a.coverText)+'"><label>推荐语</label><textarea class="i-rec">'+esc(a.recommendationText)+'</textarea><div style="margin:6px 0">'+(a.tags||[]).map(t=>'<span class="tag">'+esc(t)+'</span>').join('')+'</div><div class="row" style="justify-content:flex-start;gap:8px"><button class="ok" data-testid="approve">通过</button><button class="bad">驳回</button><button class="ghost metrics">模拟埋点</button></div>';
 const review=async status=>{try{const body={status,title:c.querySelector('.i-title').value,coverText:c.querySelector('.i-cover').value,recommendationText:c.querySelector('.i-rec').value};const u=await api('/assets/'+a.id+'/review',{method:'POST',headers:{'content-type':'application/json'},body:JSON.stringify(body)});c.replaceWith(card(u));toast('已'+(status==='approved'?'通过':'驳回'));}catch(e){toast('审核失败：'+e.message,true);}};
-c.querySelector('.ok').onclick=()=>review('approved');c.querySelector('.bad').onclick=()=>review('rejected');return c;}
+c.querySelector('.ok').onclick=()=>review('approved');c.querySelector('.bad').onclick=()=>review('rejected');
+const btnMetrics=c.querySelector('.metrics');
+btnMetrics.onclick=async()=>{
+  const impressions=50;
+  const clicks=Math.floor(Math.random()*11);
+  const plays=Math.floor(Math.random()*41);
+  const completions=Math.floor(Math.random()*(plays+1));
+  const shares=Math.floor(Math.random()*4);
+  try{await api('/assets/'+a.id+'/metrics',{method:'POST',headers:{'content-type':'application/json'},body:JSON.stringify({impressions,clicks,plays,completions,shares})});
+  toast('埋点已上报 · 曝光'+impressions+' 点击'+clicks+' 播放'+plays);if(analyticsLoaded)loadAnalytics();}catch(e){toast('上报失败：'+e.message,true);}};
+return c;}
+let analyticsLoaded=false;
+async function loadAnalytics(){try{const r=await api('/analytics/summary');analyticsLoaded=true;const p=$('analytics-panel');
+const t=r.totals||{};const noData=!t.impressions&&!t.clicks&&!t.plays&&!t.completions&&!t.shares;
+let html='<div style="margin-bottom:12px">';
+if(noData){html+='<span class="muted">暂无数据</span>';}
+else{html+='曝光 <strong>'+esc(t.impressions||0)+'</strong> &nbsp; 点击 <strong>'+esc(t.clicks||0)+'</strong> &nbsp; CTR <strong>'+((t.ctr||0)*100).toFixed(1)+'%</strong> &nbsp; 播放 <strong>'+esc(t.plays||0)+'</strong> &nbsp; 完播率 <strong>'+((t.completionRate||0)*100).toFixed(1)+'%</strong> &nbsp; 分享 <strong>'+esc(t.shares||0)+'</strong>';}
+html+='</div>';
+function tbl(rows){let s='<table><thead><tr><th>key</th><th>曝光</th><th>点击</th><th>CTR</th><th>播放</th><th>完播率</th><th>数量</th></tr></thead><tbody>';
+if(!rows||!rows.length){s+='<tr><td colspan="7" class="muted">暂无数据</td></tr>';}
+else{rows.forEach(row=>{s+='<tr><td>'+esc(row.key)+'</td><td>'+esc(row.impressions||0)+'</td><td>'+esc(row.clicks||0)+'</td><td>'+((row.ctr||0)*100).toFixed(1)+'%</td><td>'+esc(row.plays||0)+'</td><td>'+((row.completionRate||0)*100).toFixed(1)+'%</td><td>'+esc(row.count||0)+'</td></tr>';});}
+return s+'</tbody></table>';}
+html+='<div style="margin-bottom:6px"><strong>按场景</strong></div>'+tbl(r.byScenario);
+html+='<div style="margin:12px 0 6px"><strong>按高光类型</strong></div>'+tbl(r.byHighlightType);
+const sugg=r.suggestions||[];
+html+='<div style="margin:12px 0 6px"><strong>优化建议</strong></div>';
+if(!sugg.length){html+='<span class="muted">暂无建议</span>';}
+else{html+='<ul style="margin:0;padding-left:18px">'+sugg.map(s=>'<li>'+esc(s)+'</li>').join('')+'</ul>';}
+p.innerHTML=html;}catch(e){toast('载入分析失败：'+e.message,true);}}
+$('btn-analytics').onclick=loadAnalytics;
 loadTasks();
 </script>
 </body>
