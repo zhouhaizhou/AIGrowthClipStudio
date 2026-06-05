@@ -201,3 +201,89 @@ export function recordMetrics(
   ).run({ id: assetId, ...d, now })
   return getMetrics(db, assetId)
 }
+
+export interface AggRow {
+  key: string
+  impressions: number
+  clicks: number
+  ctr: number
+  plays: number
+  completions: number
+  completionRate: number
+  count: number
+}
+
+function aggregate(rows: any[], keyField: string): AggRow[] {
+  const map = new Map<string, AggRow>()
+  for (const r of rows) {
+    const key = r[keyField] ?? 'unknown'
+    let a = map.get(key)
+    if (!a) {
+      a = { key, impressions: 0, clicks: 0, ctr: 0, plays: 0, completions: 0, completionRate: 0, count: 0 }
+      map.set(key, a)
+    }
+    a.impressions += r.impressions
+    a.clicks += r.clicks
+    a.plays += r.plays
+    a.completions += r.completions
+    a.count += 1
+  }
+  const out = [...map.values()]
+  for (const a of out) {
+    a.ctr = a.impressions > 0 ? a.clicks / a.impressions : 0
+    a.completionRate = a.plays > 0 ? a.completions / a.plays : 0
+  }
+  out.sort((x, y) => y.ctr - x.ctr)
+  return out
+}
+
+function pct(x: number): string {
+  return (x * 100).toFixed(1) + '%'
+}
+
+function buildSuggestions(totals: any, byScenario: AggRow[], byHighlightType: AggRow[]): string[] {
+  if (totals.impressions === 0) return ['暂无足够数据，先投放/模拟埋点。']
+  const out: string[] = []
+  const scen = byScenario.filter((a) => a.impressions > 0)
+  if (scen.length) {
+    const best = scen[0]
+    out.push('场景 `' + best.key + '` CTR 最高（' + pct(best.ctr) + '），优先投放。')
+    const worst = scen[scen.length - 1]
+    if (worst.key !== best.key && worst.ctr < best.ctr) {
+      out.push('场景 `' + worst.key + '` CTR 偏低（' + pct(worst.ctr) + '），建议优化开头 hook。')
+    }
+  }
+  const ht = byHighlightType.filter((a) => a.plays > 0)
+  if (ht.length) {
+    const bestC = [...ht].sort((a, b) => b.completionRate - a.completionRate)[0]
+    out.push('高光类型 `' + bestC.key + '` 完播率最高（' + pct(bestC.completionRate) + '）。')
+  }
+  return out
+}
+
+export function analyticsSummary(db: DB) {
+  const rows = db
+    .prepare(
+      `SELECT a.scenario AS scenario, s.highlight_type AS highlight_type,
+              COALESCE(m.impressions,0) AS impressions, COALESCE(m.clicks,0) AS clicks,
+              COALESCE(m.plays,0) AS plays, COALESCE(m.completions,0) AS completions,
+              COALESCE(m.shares,0) AS shares
+       FROM ai_clip_assets a
+       JOIN ai_clip_segments s ON s.id = a.segment_id
+       LEFT JOIN ai_asset_metrics m ON m.asset_id = a.id`,
+    )
+    .all() as any[]
+  const totals: any = { impressions: 0, clicks: 0, plays: 0, completions: 0, shares: 0 }
+  for (const r of rows) {
+    totals.impressions += r.impressions
+    totals.clicks += r.clicks
+    totals.plays += r.plays
+    totals.completions += r.completions
+    totals.shares += r.shares
+  }
+  totals.ctr = totals.impressions > 0 ? totals.clicks / totals.impressions : 0
+  totals.completionRate = totals.plays > 0 ? totals.completions / totals.plays : 0
+  const byScenario = aggregate(rows, 'scenario')
+  const byHighlightType = aggregate(rows, 'highlight_type')
+  return { totals, byScenario, byHighlightType, suggestions: buildSuggestions(totals, byScenario, byHighlightType) }
+}

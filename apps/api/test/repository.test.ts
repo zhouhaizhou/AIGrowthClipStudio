@@ -127,3 +127,27 @@ describe('metrics', () => {
     expect(repo.getMetrics(db, 'asset_m2').clicks).toBe(2)
   })
 })
+
+describe('analytics', () => {
+  it('aggregates ctr/completion and emits suggestions', () => {
+    const db = openDb(':memory:')
+    seedAsset(db, 'a_feed', 'feed', 'seg_feed', 'reversal')
+    seedAsset(db, 'a_ad', 'ad', 'seg_ad', 'conflict')
+    repo.recordMetrics(db, 'a_feed', { impressions: 100, clicks: 20, plays: 80, completions: 60 })
+    repo.recordMetrics(db, 'a_ad', { impressions: 100, clicks: 2, plays: 50, completions: 10 })
+    const s = repo.analyticsSummary(db)
+    expect(s.totals.impressions).toBe(200)
+    const feed = s.byScenario.find((x: any) => x.key === 'feed')
+    expect(feed.ctr).toBeCloseTo(0.2, 5)
+    expect(s.byScenario[0].key).toBe('feed')   // sorted by ctr desc
+    expect(s.suggestions.length).toBeGreaterThan(0)
+    expect(s.suggestions.join(' ')).toContain('feed')
+  })
+
+  it('empty data yields a no-data suggestion', () => {
+    const db = openDb(':memory:')
+    const s = repo.analyticsSummary(db)
+    expect(s.totals.impressions).toBe(0)
+    expect(s.suggestions).toEqual(['暂无足够数据，先投放/模拟埋点。'])
+  })
+})
