@@ -154,3 +154,50 @@ export function reviewAsset(db: DB, id: string, patch: ReviewInput): AssetDto | 
   if (Number(result.changes) === 0) return undefined
   return toAssetDto(db.prepare('SELECT * FROM ai_clip_assets WHERE id = ?').get(id))
 }
+
+export interface MetricsRow {
+  assetId: string
+  impressions: number
+  clicks: number
+  plays: number
+  completions: number
+  shares: number
+}
+
+function toMetricsRow(assetId: string, row: any): MetricsRow {
+  return {
+    assetId,
+    impressions: row?.impressions ?? 0,
+    clicks: row?.clicks ?? 0,
+    plays: row?.plays ?? 0,
+    completions: row?.completions ?? 0,
+    shares: row?.shares ?? 0,
+  }
+}
+
+export function getMetrics(db: DB, assetId: string): MetricsRow {
+  return toMetricsRow(assetId, db.prepare('SELECT * FROM ai_asset_metrics WHERE asset_id = ?').get(assetId))
+}
+
+export function recordMetrics(
+  db: DB,
+  assetId: string,
+  deltas: { impressions?: number; clicks?: number; plays?: number; completions?: number; shares?: number },
+): MetricsRow | undefined {
+  const exists = db.prepare('SELECT id FROM ai_clip_assets WHERE id = ?').get(assetId)
+  if (!exists) return undefined
+  const nn = (v: number | undefined) => Math.max(0, Math.floor(v ?? 0))
+  const d = {
+    impressions: nn(deltas.impressions), clicks: nn(deltas.clicks), plays: nn(deltas.plays),
+    completions: nn(deltas.completions), shares: nn(deltas.shares),
+  }
+  const now = Date.now()
+  db.prepare(
+    `INSERT INTO ai_asset_metrics (asset_id, impressions, clicks, plays, completions, shares, created_at, updated_at)
+     VALUES (@id, @impressions, @clicks, @plays, @completions, @shares, @now, @now)
+     ON CONFLICT(asset_id) DO UPDATE SET
+       impressions = impressions + @impressions, clicks = clicks + @clicks, plays = plays + @plays,
+       completions = completions + @completions, shares = shares + @shares, updated_at = @now`,
+  ).run({ id: assetId, ...d, now })
+  return getMetrics(db, assetId)
+}

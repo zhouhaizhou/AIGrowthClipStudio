@@ -89,3 +89,39 @@ describe('task summary null title', () => {
     expect((repo.listTasks(db, {})[0] as any).title).toBeNull()
   })
 })
+
+function seedAsset(db: any, id: string, scenario = 'feed', segId = 'seg_x', htype = 'reversal') {
+  const now = Date.now()
+  db.prepare(`INSERT OR IGNORE INTO ai_clip_segments (id, task_id, source_content_id, start_ms, end_ms, duration_ms, highlight_type, score, risk_level, status, created_at, updated_at) VALUES (@s,'t','12345',0,5000,5000,@h,0.9,'low','candidate',@n,@n)`).run({ s: segId, h: htype, n: now })
+  db.prepare(`INSERT INTO ai_clip_assets (id, task_id, segment_id, source_content_id, scenario, duration, aspect_ratio, language, video_url, status, tags, created_at, updated_at) VALUES (@id,'t',@seg,'12345',@sc,15,'9:16','zh-CN','/v.mp4','approved','[]',@n,@n)`).run({ id, seg: segId, sc: scenario, n: now })
+}
+
+describe('metrics', () => {
+  it('recordMetrics upserts and accumulates', () => {
+    const db = openDb(':memory:')
+    seedAsset(db, 'asset_m1')
+    expect(repo.recordMetrics(db, 'asset_m1', { impressions: 10, clicks: 2 })?.impressions).toBe(10)
+    const m = repo.recordMetrics(db, 'asset_m1', { clicks: 3, plays: 4 })
+    expect(m?.clicks).toBe(5)
+    expect(m?.plays).toBe(4)
+    expect(repo.getMetrics(db, 'asset_m1').clicks).toBe(5)
+  })
+
+  it('recordMetrics on unknown asset returns undefined', () => {
+    const db = openDb(':memory:')
+    expect(repo.recordMetrics(db, 'nope', { impressions: 1 })).toBeUndefined()
+  })
+
+  it('getMetrics returns zeros for unknown', () => {
+    const db = openDb(':memory:')
+    expect(repo.getMetrics(db, 'nope')).toEqual({ assetId: 'nope', impressions: 0, clicks: 0, plays: 0, completions: 0, shares: 0 })
+  })
+
+  it('negative deltas are floored to 0', () => {
+    const db = openDb(':memory:')
+    seedAsset(db, 'asset_m2')
+    repo.recordMetrics(db, 'asset_m2', { impressions: -5, clicks: 2 })
+    expect(repo.getMetrics(db, 'asset_m2').impressions).toBe(0)
+    expect(repo.getMetrics(db, 'asset_m2').clicks).toBe(2)
+  })
+})

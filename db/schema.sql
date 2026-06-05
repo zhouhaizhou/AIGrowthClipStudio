@@ -64,3 +64,14 @@ CREATE TABLE IF NOT EXISTS ai_clip_assets (
   updated_at INTEGER NOT NULL
 );
 CREATE INDEX IF NOT EXISTS idx_assets_task ON ai_clip_assets(task_id);
+
+CREATE TABLE IF NOT EXISTS ai_asset_metrics (
+  asset_id TEXT PRIMARY KEY,
+  impressions INTEGER NOT NULL DEFAULT 0,
+  clicks INTEGER NOT NULL DEFAULT 0,
+  plays INTEGER NOT NULL DEFAULT 0,
+  completions INTEGER NOT NULL DEFAULT 0,
+  shares INTEGER NOT NULL DEFAULT 0,
+  created_at INTEGER NOT NULL,
+  updated_at INTEGER NOT NULL
+);

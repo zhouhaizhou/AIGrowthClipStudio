@@ -26,3 +26,12 @@ export const ReviewBody = z.object({
   recommendationText: z.string().optional(),
 })
 export type ReviewInput = z.infer<typeof ReviewBody>
+
+export const MetricsBody = z.object({
+  impressions: z.number().int().nonnegative().optional(),
+  clicks: z.number().int().nonnegative().optional(),
+  plays: z.number().int().nonnegative().optional(),
+  completions: z.number().int().nonnegative().optional(),
+  shares: z.number().int().nonnegative().optional(),
+})
+export type MetricsInput = z.infer<typeof MetricsBody>
