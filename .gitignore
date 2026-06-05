@@ -19,3 +19,4 @@ data/
 
 # os
 .DS_Store
+.gstack/
