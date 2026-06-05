@@ -3,7 +3,7 @@ import fastifyStatic from '@fastify/static'
 import { resolve, dirname, join } from 'node:path'
 import { fileURLToPath } from 'node:url'
 import type { DB } from './db.js'
-import { CreateTaskBody, ReviewBody } from './schemas.js'
+import { CreateTaskBody, ReviewBody, MetricsBody } from './schemas.js'
 import * as repo from './repository.js'
 
 const here = dirname(fileURLToPath(import.meta.url))
@@ -59,6 +59,24 @@ export function buildServer(db: DB, storageDir: string, webDir: string = DEFAULT
     if (!updated) return reply.code(404).send({ error: 'not_found' })
     return updated
   })
+
+  app.post('/api/ai-growth-clip/assets/:id/metrics', async (req, reply) => {
+    const { id } = req.params as { id: string }
+    const parsed = MetricsBody.safeParse(req.body)
+    if (!parsed.success) {
+      return reply.code(400).send({ error: 'invalid_body', issues: parsed.error.issues })
+    }
+    const m = repo.recordMetrics(db, id, parsed.data)
+    if (!m) return reply.code(404).send({ error: 'not_found' })
+    return m
+  })
+
+  app.get('/api/ai-growth-clip/assets/:id/metrics', async (req) => {
+    const { id } = req.params as { id: string }
+    return repo.getMetrics(db, id)
+  })
+
+  app.get('/api/ai-growth-clip/analytics/summary', async () => repo.analyticsSummary(db))
 
   return app
 }
