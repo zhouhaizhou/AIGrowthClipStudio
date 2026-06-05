@@ -213,8 +213,26 @@ export interface AggRow {
   count: number
 }
 
+export interface Totals {
+  impressions: number
+  clicks: number
+  plays: number
+  completions: number
+  shares: number
+  ctr: number
+  completionRate: number
+}
+
+export interface AnalyticsSummary {
+  totals: Totals
+  byScenario: AggRow[]
+  byHighlightType: AggRow[]
+  suggestions: string[]
+}
+
 function aggregate(rows: any[], keyField: string): AggRow[] {
   const map = new Map<string, AggRow>()
+  // shares is reported only in totals, not per-group (no per-group consumer needs it)
   for (const r of rows) {
     const key = r[keyField] ?? 'unknown'
     let a = map.get(key)
@@ -226,6 +244,7 @@ function aggregate(rows: any[], keyField: string): AggRow[] {
     a.clicks += r.clicks
     a.plays += r.plays
     a.completions += r.completions
+    // count = number of clips in this group (available for UI display)
     a.count += 1
   }
   const out = [...map.values()]
@@ -241,7 +260,7 @@ function pct(x: number): string {
   return (x * 100).toFixed(1) + '%'
 }
 
-function buildSuggestions(totals: any, byScenario: AggRow[], byHighlightType: AggRow[]): string[] {
+function buildSuggestions(totals: Totals, byScenario: AggRow[], byHighlightType: AggRow[]): string[] {
   if (totals.impressions === 0) return ['暂无足够数据，先投放/模拟埋点。']
   const out: string[] = []
   const scen = byScenario.filter((a) => a.impressions > 0)
@@ -261,7 +280,8 @@ function buildSuggestions(totals: any, byScenario: AggRow[], byHighlightType: Ag
   return out
 }
 
-export function analyticsSummary(db: DB) {
+// INNER JOIN on segment (every asset has a segment); LEFT JOIN metrics (asset may have none yet).
+export function analyticsSummary(db: DB): AnalyticsSummary {
   const rows = db
     .prepare(
       `SELECT a.scenario AS scenario, s.highlight_type AS highlight_type,
@@ -273,7 +293,7 @@ export function analyticsSummary(db: DB) {
        LEFT JOIN ai_asset_metrics m ON m.asset_id = a.id`,
     )
     .all() as any[]
-  const totals: any = { impressions: 0, clicks: 0, plays: 0, completions: 0, shares: 0 }
+  const totals: Totals = { impressions: 0, clicks: 0, plays: 0, completions: 0, shares: 0, ctr: 0, completionRate: 0 }
   for (const r of rows) {
     totals.impressions += r.impressions
     totals.clicks += r.clicks

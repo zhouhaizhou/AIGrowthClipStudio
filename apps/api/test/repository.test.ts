@@ -139,6 +139,8 @@ describe('analytics', () => {
     expect(s.totals.impressions).toBe(200)
     const feed = s.byScenario.find((x: any) => x.key === 'feed')
     expect(feed.ctr).toBeCloseTo(0.2, 5)
+    expect(feed.completionRate).toBeCloseTo(0.75, 5)   // 60/80
+    expect(s.suggestions.join(' ')).toContain('reversal')   // best highlight_type by completion
     expect(s.byScenario[0].key).toBe('feed')   // sorted by ctr desc
     expect(s.suggestions.length).toBeGreaterThan(0)
     expect(s.suggestions.join(' ')).toContain('feed')
