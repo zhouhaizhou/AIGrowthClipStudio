@@ -52,4 +52,29 @@ esac
 
 # 5) 查状态与产物
 echo "task: $(curl -s localhost:$API_PORT/api/ai-growth-clip/tasks/$TASK_ID)"
-echo "assets: $(curl -s localhost:$API_PORT/api/ai-growth-clip/tasks/$TASK_ID/assets)"
+ASSETS=$(curl -s localhost:$API_PORT/api/ai-growth-clip/tasks/$TASK_ID/assets)
+echo "assets: $ASSETS"
+
+# 6) M5 效果回流：给前两个素材上报模拟埋点
+ASSET_IDS=$(echo "$ASSETS" | python3 -c 'import sys,json; print(" ".join(a["id"] for a in json.load(sys.stdin)["list"][:2]))')
+[ -n "$ASSET_IDS" ] || { echo "ERROR: no assets produced — cannot test metrics"; exit 1; }
+for AID in $ASSET_IDS; do
+  curl -s -X POST "localhost:$API_PORT/api/ai-growth-clip/assets/$AID/metrics" \
+    -H 'content-type: application/json' \
+    -d '{"impressions":100,"clicks":18,"plays":70,"completions":52,"shares":4}' >/dev/null
+done
+
+# 7) 拉聚合分析，断言非零 + 至少一条建议
+SUMMARY=$(curl -s localhost:$API_PORT/api/ai-growth-clip/analytics/summary)
+echo "analytics: $SUMMARY"
+echo "$SUMMARY" | python3 -c '
+import sys,json
+s=json.load(sys.stdin)
+t=s["totals"]
+ctr=t["ctr"]; comp=t["completionRate"]; imp=t["impressions"]; n=len(s["suggestions"])
+assert imp>0, "expected non-zero impressions"
+assert 0 < ctr <= 1, "bad ctr {}".format(ctr)
+assert n>=1, "expected at least one suggestion"
+assert len(s["byScenario"])>=1, "expected byScenario rows"
+print("OK metrics+analytics: impressions={} ctr={:.3f} completion={:.3f} suggestions={}".format(imp, ctr, comp, n))
+'
