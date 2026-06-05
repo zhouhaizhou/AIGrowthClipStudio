@@ -13,6 +13,7 @@ describe('db + ids', () => {
     expect(names).toContain('ai_clip_tasks')
     expect(names).toContain('ai_clip_segments')
     expect(names).toContain('ai_clip_assets')
+    expect(names).toContain('ai_asset_metrics')
   })
 
   it('newId has prefix', () => {
@@ -104,6 +105,7 @@ describe('metrics', () => {
     const m = repo.recordMetrics(db, 'asset_m1', { clicks: 3, plays: 4 })
     expect(m?.clicks).toBe(5)
     expect(m?.plays).toBe(4)
+    expect(m?.impressions).toBe(10)   // preserved across the second call
     expect(repo.getMetrics(db, 'asset_m1').clicks).toBe(5)
   })
 

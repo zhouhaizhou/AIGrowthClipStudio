@@ -186,7 +186,7 @@ export function recordMetrics(
 ): MetricsRow | undefined {
   const exists = db.prepare('SELECT id FROM ai_clip_assets WHERE id = ?').get(assetId)
   if (!exists) return undefined
-  const nn = (v: number | undefined) => Math.max(0, Math.floor(v ?? 0))
+  const nn = (v: number | undefined) => (Number.isFinite(v) ? Math.max(0, Math.floor(v as number)) : 0)
   const d = {
     impressions: nn(deltas.impressions), clicks: nn(deltas.clicks), plays: nn(deltas.plays),
     completions: nn(deltas.completions), shares: nn(deltas.shares),

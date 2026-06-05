@@ -65,6 +65,8 @@ CREATE TABLE IF NOT EXISTS ai_clip_assets (
 );
 CREATE INDEX IF NOT EXISTS idx_assets_task ON ai_clip_assets(task_id);
 
+-- asset_id intentionally has no FK to ai_clip_assets (single-writer SQLite; existence
+-- is checked in code by recordMetrics). Revisit if cross-table deletes are added.
 CREATE TABLE IF NOT EXISTS ai_asset_metrics (
   asset_id TEXT PRIMARY KEY,
   impressions INTEGER NOT NULL DEFAULT 0,
