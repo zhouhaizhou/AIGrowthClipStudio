@@ -22,6 +22,9 @@ def _build_packaging(config: Config):
     if config.packaging_provider in ("llm", "claude"):
         from .providers.llm_packaging import ClaudePackagingProvider  # lazy: avoid import on mock path
         return ClaudePackagingProvider(model=config.llm_model)
+    if config.packaging_provider in ("claude-cli", "cli"):
+        from .providers.claude_cli import ClaudeCliPackagingProvider  # lazy: CLI path (Claude Code subscription)
+        return ClaudeCliPackagingProvider(model=config.llm_model)
     if config.packaging_provider != "mock":
         _log.warning("Unknown PACKAGING_PROVIDER %r; falling back to mock", config.packaging_provider)
     return MockPackagingProvider()
@@ -31,6 +34,9 @@ def _build_highlight(config: Config):
     if config.highlight_provider in ("llm", "claude"):
         from .providers.llm_highlight import ClaudeHighlightProvider  # lazy: avoid import on mock path
         return ClaudeHighlightProvider(model=config.llm_model)
+    if config.highlight_provider in ("claude-cli", "cli"):
+        from .providers.claude_cli import ClaudeCliHighlightProvider  # lazy: CLI path (Claude Code subscription)
+        return ClaudeCliHighlightProvider(model=config.llm_model)
     if config.highlight_provider != "mock":
         _log.warning("Unknown HIGHLIGHT_PROVIDER %r; falling back to mock", config.highlight_provider)
     return MockHighlightProvider()

@@ -84,6 +84,27 @@ export ANTHROPIC_API_KEY=sk-...
 HIGHLIGHT_PROVIDER=llm PACKAGING_PROVIDER=llm python3 -m agcs_worker.main --once
 ```
 
+## 通过 Claude Code CLI 调用（无需 API key，M3b）
+
+没有 `sk-ant-...` API key、但本机已装好 Claude Code（含订阅/中转，如 reclaude）时，可用
+`claude-cli` provider：worker 不调用 Anthropic SDK，而是 `claude -p ... --output-format json`
+让 Claude Code 用它自己的登录态完成高光选段与文案，无需任何 API key。
+
+```bash
+# 需要 `claude` 在 PATH 上（CLAUDE_CLI_BIN 可覆盖二进制名）
+HIGHLIGHT_PROVIDER=claude-cli PACKAGING_PROVIDER=claude-cli \
+  LLM_MODEL=claude-sonnet-4-6 python3 -m agcs_worker.main --once
+```
+
+实现要点（见 [providers/claude_cli.py](apps/worker/agcs_worker/providers/claude_cli.py)）：
+复用 `llm_highlight`/`llm_packaging` 的 prompt 与校验逻辑；以 `--strict-mcp-config --setting-sources ""`
+跑一次干净的一问一答（不加载 MCP/hooks/skills，否则会拖慢并跑偏）；CLI 让模型手写 JSON，没有
+tool_use 的结构保证，因此 prompt 里禁用内嵌英文引号、解析端再做容错修复 + 重试一次。
+
+> 代价：每次调用带 Claude Code 自身约 1 万+ token 的系统提示开销，且消耗你的订阅额度；
+> 一条任务 = 1 次高光 + N 次（每高光一次）文案调用。中转订阅（如 reclaude）用于批量自动化前，
+> 请自行确认其使用条款是否允许。
+
 ## 效果回流 / 效果分析（M5）
 
 审核台内置「效果分析」面板，对接三条 API：
