@@ -14,7 +14,7 @@
   .row { display:flex; flex-wrap:wrap; gap:10px; align-items:center; justify-content:space-between; }
   .card { background:var(--card); border:1px solid var(--line); border-radius:10px; padding:14px; }
   label { display:block; font-size:12px; color:var(--mut); margin:8px 0 4px; }
-  input,textarea { width:100%; background:#0c0e12; border:1px solid var(--line); color:var(--fg); border-radius:6px; padding:7px 9px; font:inherit; }
+  input,textarea,select { width:100%; background:#0c0e12; border:1px solid var(--line); color:var(--fg); border-radius:6px; padding:7px 9px; font:inherit; }
   textarea { resize:vertical; min-height:38px; }
   button { background:var(--acc); color:#fff; border:0; border-radius:6px; padding:8px 14px; cursor:pointer; font-weight:600; }
   button.ghost { background:transparent; border:1px solid var(--line); color:var(--fg); }
@@ -31,14 +31,61 @@
   .asset .meta { color:var(--mut); font-size:12px; margin:6px 0; } .tag { display:inline-block; background:#222838; border-radius:99px; padding:1px 8px; margin:2px 4px 0 0; font-size:11px; }
   #toast { position:fixed; top:14px; right:14px; max-width:360px; z-index:9; } .toast { background:var(--card); border:1px solid var(--line); border-left:3px solid var(--acc); border-radius:8px; padding:10px 12px; margin-bottom:8px; font-size:13px; } .toast.err { border-left-color:var(--bad); }
   details summary { cursor:pointer; color:var(--mut); } .muted { color:var(--mut); }
+  .guide { line-height:1.65; } .guide h3 { font-size:13px; color:var(--fg); margin:16px 0 6px; } .guide h3:first-of-type { margin-top:4px; }
+  .guide ul { margin:6px 0; padding-left:20px; } .guide li { margin:3px 0; } .guide p { margin:6px 0; }
+  .guide code { background:#0c0e12; border:1px solid var(--line); border-radius:4px; padding:1px 5px; font-size:12px; }
+  .guide .step { display:flex; gap:10px; margin:8px 0; align-items:flex-start; } .guide .step b { color:#fff; background:var(--acc); border-radius:99px; min-width:20px; height:20px; display:inline-flex; align-items:center; justify-content:center; font-size:12px; flex:none; margin-top:1px; }
 </style>
 </head>
 <body>
 <header><h1>AI Growth Clip Studio</h1><span>增长素材审核台</span></header>
 <main>
+  <section class="card"><details open><summary>📖 使用指南 / 功能说明（点击展开 / 收起）</summary>
+  <div class="guide" style="margin-top:12px">
+    <p class="muted">本工具把一条长视频自动拆成多版本（推荐流 / 广告 / 会员 / 社媒）短视频增长素材：AI 转写字幕、识别高光片段、生成标题 / 封面文案 / 推荐语；你在此预览、微调、审核上线，并回流投放数据做效果分析。</p>
+
+    <h3>① 基本流程（四步）</h3>
+    <div class="step"><b>1</b><div><strong>创建任务</strong> —— 展开下方「＋ 创建任务」，填视频地址与目标参数后提交。</div></div>
+    <div class="step"><b>2</b><div><strong>等待处理</strong> —— 任务由后台 worker 处理（转写 → 选高光 → 生成文案 → 切片）。<strong style="color:var(--bad)">注意：本控制台不会自动处理任务，必须有 worker 进程在运行。</strong>在「任务」区点「刷新」，直到状态变 <span class="badge b-succeeded">succeeded</span>。</div></div>
+    <div class="step"><b>3</b><div><strong>审核素材</strong> —— 点任务行，下方出现素材卡。可直接修改标题 / 封面文案 / 推荐语，再点「通过」或「驳回」。</div></div>
+    <div class="step"><b>4</b><div><strong>效果回流</strong> —— 点素材上的「模拟埋点」上报投放数据，再到「效果分析」点「刷新」查看聚合数据与优化建议。</div></div>
+
+    <h3>② 区块功能</h3>
+    <ul>
+      <li><strong>＋ 创建任务</strong>：发起一个视频拆条任务。</li>
+      <li><strong>任务</strong>：所有任务及状态 / 进度；点击某行即选中并在下方加载它的素材。</li>
+      <li><strong>素材</strong>：当前选中任务产出的多版本短视频，逐条预览 + 审核。</li>
+      <li><strong>效果分析</strong>：<strong>全局</strong>（跨所有任务）投放数据聚合（总览 / 按场景 / 按高光类型）+ AI 优化建议。</li>
+    </ul>
+
+    <h3>③ 按钮行为</h3>
+    <ul>
+      <li><strong>通过 / 驳回</strong>：会把你<strong>当前编辑后</strong>的标题 / 封面 / 推荐语一起入库，并把素材状态改为 approved / rejected。</li>
+      <li><strong>模拟埋点</strong>：上报一条模拟投放数据（曝光固定 50，点击 / 播放 / 完播 / 分享随机），用于演示效果回流。</li>
+      <li><strong>刷新</strong>：任务区刷新任务列表；分析区重新拉取聚合数据。</li>
+    </ul>
+
+    <h3>④ 状态徽章</h3>
+    <ul>
+      <li>任务：<span class="badge b-queued">queued</span> 排队 · <span class="badge b-running">running</span> 处理中 · <span class="badge b-succeeded">succeeded</span> 完成 · <span class="badge b-failed">failed</span> 失败</li>
+      <li>素材：<span class="badge b-pending_review">pending_review</span> 待审核 · <span class="badge b-approved">approved</span> 已通过 · <span class="badge b-rejected">rejected</span> 已驳回</li>
+    </ul>
+
+    <h3>⑤ 创建任务字段说明</h3>
+    <ul>
+      <li><code>sourceVideoUrl</code>：视频地址，<strong>需 file:// 绝对路径</strong>（暂不支持 http 直链），例 <code>file:///abs/path/video.mp4</code>。</li>
+      <li><code>sourceContentType</code>：内容类型，<code>video</code>（单条视频）或 <code>episode</code>（剧集 / 长视频）。</li>
+      <li><code>targetScenarios</code>：目标投放场景；AI 会据此为每条素材分配场景。</li>
+      <li><code>targetDurations</code> × <code>targetAspectRatios</code>：每个高光片段按所选「时长 × 比例」各切一版。</li>
+      <li><code>targetLanguages</code>：字幕 / 文案语言（默认 zh-CN）。</li>
+      <li><code>clipCount</code>：期望产出的高光片段数量。</li>
+    </ul>
+  </div></details></section>
+
   <section class="card"><details><summary>＋ 创建任务</summary><div style="margin-top:12px">
     <div class="grid3">
       <div><label>sourceContentId</label><input id="f-cid" value="demo-1"></div>
+      <div><label>sourceContentType</label><select id="f-ctype"><option value="video">video（单条视频）</option><option value="episode" selected>episode（剧集 / 长视频）</option></select></div>
       <div><label>sourceVideoUrl（支持 file://）</label><input id="f-url" placeholder="file:///abs/sample.mp4"></div>
       <div><label>title</label><input id="f-title" value="她被退婚后身份曝光"></div>
       <div><label>category</label><input id="f-cat" value="短剧"></div>
@@ -48,6 +95,7 @@
     <label>targetScenarios</label><div class="checks" id="f-scen"></div>
     <label>targetDurations</label><div class="checks" id="f-dur"></div>
     <label>targetAspectRatios</label><div class="checks" id="f-ar"></div>
+    <label>targetLanguages</label><div class="checks" id="f-lang"></div>
     <div style="margin-top:12px"><button id="btn-create">创建任务</button></div>
   </div></details></section>
 
@@ -65,7 +113,7 @@
 </main>
 <div id="toast"></div>
 <script>
-const API='/api/ai-growth-clip', SCEN=['feed','detail','ad','membership','social'], DUR=['15','30','60'], AR=['9:16','16:9','1:1','4:5'];
+const API='/api/ai-growth-clip', SCEN=['feed','detail','ad','membership','social'], DUR=['15','30','60'], AR=['9:16','16:9','1:1','4:5'], LANG=['zh-CN','en-US','ja-JP'];
 let selectedTask=null;
 const $=id=>document.getElementById(id);
 function esc(s){return String(s==null?'':s).replace(/[&<>"]/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c]));}
@@ -74,8 +122,8 @@ async function api(path,opts){const r=await fetch(API+path,opts);const t=await r
 function checks(el,vals,preset){el.innerHTML='';vals.forEach(v=>{const l=document.createElement('label');l.innerHTML='<input type="checkbox" value="'+v+'"'+(preset.includes(v)?' checked':'')+'> '+v;el.appendChild(l);});}
 function picked(el){return [...el.querySelectorAll('input:checked')].map(i=>i.value);}
 function badge(s){return '<span class="badge b-'+esc(s)+'">'+esc(s)+'</span>';}
-checks($('f-scen'),SCEN,['feed']);checks($('f-dur'),DUR,['15','30']);checks($('f-ar'),AR,['9:16']);
-$('btn-create').onclick=async()=>{try{const body={sourceContentId:$('f-cid').value.trim(),sourceContentType:'episode',sourceVideoUrl:$('f-url').value.trim(),title:$('f-title').value.trim(),category:$('f-cat').value.trim(),tags:$('f-tags').value.split(',').map(s=>s.trim()).filter(Boolean),targetScenarios:picked($('f-scen')),targetDurations:picked($('f-dur')).map(Number),targetAspectRatios:picked($('f-ar')),clipCount:Number($('f-count').value)};const r=await api('/tasks',{method:'POST',headers:{'content-type':'application/json'},body:JSON.stringify(body)});toast('已创建任务 '+r.taskId+'（worker 处理后点刷新）');loadTasks();}catch(e){toast('创建失败：'+e.message,true);}};
+checks($('f-scen'),SCEN,['feed']);checks($('f-dur'),DUR,['15','30']);checks($('f-ar'),AR,['9:16']);checks($('f-lang'),LANG,['zh-CN']);
+$('btn-create').onclick=async()=>{try{const body={sourceContentId:$('f-cid').value.trim(),sourceContentType:$('f-ctype').value,sourceVideoUrl:$('f-url').value.trim(),title:$('f-title').value.trim(),category:$('f-cat').value.trim(),tags:$('f-tags').value.split(',').map(s=>s.trim()).filter(Boolean),targetScenarios:picked($('f-scen')),targetDurations:picked($('f-dur')).map(Number),targetAspectRatios:picked($('f-ar')),targetLanguages:picked($('f-lang')),clipCount:Number($('f-count').value)};const r=await api('/tasks',{method:'POST',headers:{'content-type':'application/json'},body:JSON.stringify(body)});toast('已创建任务 '+r.taskId+'（worker 处理后点刷新）');loadTasks();}catch(e){toast('创建失败：'+e.message,true);}};
 $('btn-refresh').onclick=loadTasks;
 async function loadTasks(){try{const r=await api('/tasks');const tb=$('tasks');tb.innerHTML='';if(!r.list.length){tb.innerHTML='<tr><td colspan="4" class="muted">暂无任务</td></tr>';return;}r.list.forEach(t=>{const tr=document.createElement('tr');tr.className='task'+(selectedTask===t.id?' sel':'');tr.innerHTML='<td>'+esc(t.id.slice(0,16))+'…</td><td>'+(t.title?esc(t.title):'<span class=muted>—</span>')+'</td><td>'+badge(t.status)+'</td><td>'+(t.progress||0)+'%</td>';tr.onclick=()=>loadAssets(t.id);tb.appendChild(tr);});}catch(e){toast('载入任务失败：'+e.message,true);}}
 async function loadAssets(id){selectedTask=id;loadTasks();$('assets-h').textContent='素材 · '+id.slice(0,16)+'…';const box=$('assets');box.innerHTML='<span class="muted">载入中…</span>';try{const r=await api('/tasks/'+id+'/assets');box.innerHTML='';if(!r.list.length){box.innerHTML='<span class="muted">暂无素材（确认 worker 已运行并处理完成）</span>';return;}r.list.forEach(a=>box.appendChild(card(a)));}catch(e){box.innerHTML='';toast('载入素材失败：'+e.message,true);}}
