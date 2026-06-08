@@ -21,22 +21,42 @@ cd apps/api && npm install && cd ../..
 
 ## 分开运行
 
-```bash
-# API（终端 A）
-cd apps/api && npm start            # 监听 :8787
+> ⚠️ API 与 worker 必须指向**同一套** `DB_PATH` / `STORAGE_DIR`。二者默认都是相对各自目录的
+> `./data`、`./storage`，分目录启动会读写**不同**的库而互相看不到数据。下面统一指到仓库根的
+> `data/` 与 `storage/`。
 
-# Worker（终端 B，轮询模式）
-cd apps/worker && python3 -m agcs_worker.main
-# 或处理一条后退出：python3 -m agcs_worker.main --once
+```bash
+# API（终端 A）—— 监听 :8787，根路径即审核台
+cd apps/api && DB_PATH=../../data/agcs.db STORAGE_DIR=../../storage API_PORT=8787 npm start
+
+# Worker（终端 B，轮询模式；--once 处理一条后退出）
+cd apps/worker && DB_PATH=../../data/agcs.db STORAGE_DIR=../../storage python3 -m agcs_worker.main
 ```
+
+浏览器打开 <http://localhost:8787/>（顶部内置「使用指南 / 功能说明」）。
+
+### 智能档位（worker 选其一，环境变量加在终端 B 命令前）
+
+| 档位 | 追加环境变量 | 产出 |
+|------|--------------|------|
+| 骨架（默认 · 最快 · 免依赖） | 无 | 真实 ffmpeg 切片/封面 + mock 字幕/文案 |
+| 真转写 | `ASR_PROVIDER=whisper WHISPER_LANGUAGE=zh` | 真实中文转写（首次下 ~150MB 模型；见 M1）|
+| 全真 · reclaude（无需 API key） | 再加 `HIGHLIGHT_PROVIDER=claude-cli PACKAGING_PROVIDER=claude-cli` | 真实高光+文案，走本机 `claude` CLI（见 M3b）|
+| 全真 · API key | `HIGHLIGHT_PROVIDER=llm PACKAGING_PROVIDER=llm ANTHROPIC_API_KEY=sk-ant-...` | 真实高光+文案，走 Anthropic SDK |
+
+> 用真转写/真 LLM 前先装依赖：`cd apps/worker && python3 -m pip install -r requirements.txt`。
+> 国内访问 huggingface.co 受限时，真转写再加 `HF_ENDPOINT=https://hf-mirror.com` 走镜像下模型。
+> 各档位细节见下方 M1 / M2 / M3 / M3b 小节。
 
 ## 审核台（M4）
 
-API 在根路径托管一个零依赖的 Web 审核台：起 API + worker 后打开浏览器即可建任务、预览切片、审核通过/驳回。
+API 在根路径托管一个零依赖的 Web 审核台：起 API + worker 后打开浏览器即可建任务、预览切片、审核通过/驳回。起法见上方 [分开运行](#分开运行)（注意 API 与 worker 要共用同一套 `DB_PATH`/`STORAGE_DIR`）：
 
 ```bash
-cd apps/api && npm install && npm start          # http://localhost:8787/  ← 审核台
-cd apps/worker && python3 -m agcs_worker.main      # 另一终端，处理任务
+# 终端 A：API（首次需 npm install）
+cd apps/api && npm install && DB_PATH=../../data/agcs.db STORAGE_DIR=../../storage npm start
+# 终端 B：worker
+cd apps/worker && DB_PATH=../../data/agcs.db STORAGE_DIR=../../storage python3 -m agcs_worker.main
 ```
 
 ## 真实 ASR（可选，M1）

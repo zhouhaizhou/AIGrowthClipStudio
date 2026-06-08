@@ -23,6 +23,10 @@ AI Growth Clip Studio 是一个面向视频内容供给侧和增长分发侧的 
   -> 数据回流优化下一轮素材
 ```
 
+## 运行
+
+本目录是产品/设计文档。**如何启动项目**（环境要求、一键冒烟、API+worker 分开运行、mock/真转写/全真等智能档位）见仓库根 [README.md](../README.md)。
+
 ## 文档目录
 
 - [01-product-plan.md](./01-product-plan.md)：产品规划、用户场景、功能模块。
